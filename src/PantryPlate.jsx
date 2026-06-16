@@ -248,8 +248,8 @@ export default function PantryPlate() {
         </div>
       ) : (
         <div className="pp-grid">
-          {shown.map((m) => (
-            <article key={m.id} className="pp-card" onClick={() => setOpen(m)} tabIndex={0}
+          {shown.map((m, i) => (
+            <article key={m.id} className="pp-card" style={{ "--i": i }} onClick={() => setOpen(m)} tabIndex={0}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setOpen(m))}>
               <div className="pp-cardtop">
                 <span className={"pp-type t-" + m.type.toLowerCase()}>{m.type}</span>
@@ -598,5 +598,81 @@ const CSS = `
 @media (prefers-reduced-motion:reduce){
   .pp-card,.pp-why svg,.pp-pantrytoggle svg{transition:none}
   .pp-card:hover{transform:none}
+}
+
+/* ── Elevation layer: atmosphere, orchestrated motion, decorative craft ── */
+html{background:#EEF3E6}
+body{
+  margin:0; min-height:100%;
+  background:
+    radial-gradient(1100px 620px at 50% -8%, #FCFEF9 0%, #F2F6EC 48%, #E9F0DF 100%) no-repeat fixed,
+    #EEF3E6;
+}
+/* faint paper grain over the whole page */
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.pp-root{background:transparent; position:relative; z-index:1}
+
+@keyframes pp-rise{from{opacity:0; transform:translateY(16px)} to{opacity:1; transform:none}}
+@keyframes pp-overlay-in{from{opacity:0} to{opacity:1}}
+@keyframes pp-modal-in{from{opacity:0; transform:translateY(20px) scale(.975)} to{opacity:1; transform:none}}
+
+/* Orchestrated page-load cascade: header → why → controls → tags → count → cards */
+.pp-header{animation:pp-rise .6s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-why{animation:pp-rise .6s .07s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-controls{animation:pp-rise .6s .14s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-tagrow{animation:pp-rise .6s .2s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-count{animation:pp-rise .6s .26s cubic-bezier(.2,.7,.2,1) backwards}
+
+/* Header mark + wordmark */
+.pp-mark{
+  background:linear-gradient(150deg,#2E6A45,#1B4429);
+  box-shadow:0 8px 18px -10px rgba(31,77,50,.7), inset 0 1px 0 rgba(255,255,255,.18);
+  transition:transform .35s cubic-bezier(.2,.7,.2,1);
+}
+.pp-mark:hover{transform:rotate(-7deg) scale(1.05)}
+.pp-header h1{
+  background:linear-gradient(92deg,var(--green) 30%,var(--green-mid));
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+}
+.pp-add{
+  background:linear-gradient(150deg,#2E6A45,#1B4429);
+  box-shadow:0 8px 18px -10px rgba(31,77,50,.6);
+  transition:transform .2s, box-shadow .2s, background .2s;
+}
+.pp-add:hover{background:linear-gradient(150deg,#286040,#173d27); transform:translateY(-1px); box-shadow:0 12px 22px -10px rgba(31,77,50,.75)}
+
+/* "Why" panel — accent rail, soft glow, gradient surface */
+.pp-whybody{position:relative; overflow:hidden; background:linear-gradient(180deg,#FFFFFF,#FBFDF6)}
+.pp-whybody::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(var(--sprout),var(--green-mid))}
+.pp-whybody::after{content:""; position:absolute; right:-50px; top:-50px; width:180px; height:180px; background:radial-gradient(circle,rgba(132,178,106,.14),transparent 70%); pointer-events:none}
+
+/* Meal cards — staggered reveal, lift choreography, growing top accent */
+.pp-card{
+  position:relative; overflow:hidden;
+  transition:transform .28s cubic-bezier(.2,.7,.2,1), box-shadow .28s, border-color .28s;
+  animation:pp-rise .55s cubic-bezier(.2,.7,.2,1) backwards;
+  animation-delay:calc(.3s + min(var(--i,0),11) * 45ms);
+}
+.pp-card::after{
+  content:""; position:absolute; left:0; top:0; width:100%; height:3px;
+  background:linear-gradient(90deg,var(--sprout),var(--green-mid));
+  transform:scaleX(0); transform-origin:left; transition:transform .35s cubic-bezier(.2,.7,.2,1);
+}
+.pp-card:hover{transform:translateY(-4px); box-shadow:0 20px 38px -22px rgba(22,36,27,.5); border-color:var(--sprout)}
+.pp-card:hover::after{transform:scaleX(1)}
+.pp-name{transition:color .25s}
+.pp-card:hover .pp-name{color:var(--green)}
+
+/* Modal entrance */
+.pp-overlay{animation:pp-overlay-in .22s ease both}
+.pp-modal{animation:pp-modal-in .34s cubic-bezier(.2,.75,.2,1) both}
+
+@media (prefers-reduced-motion:reduce){
+  .pp-header,.pp-why,.pp-controls,.pp-tagrow,.pp-count,.pp-card,.pp-overlay,.pp-modal{animation:none}
+  .pp-mark:hover,.pp-add:hover{transform:none}
+  .pp-card:hover::after{transition:none}
 }
 `;
