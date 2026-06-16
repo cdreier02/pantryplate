@@ -1,0 +1,556 @@
+[
+  {
+    "id": "pb-banana-oats",
+    "name": "Peanut Butter Banana Overnight Oats",
+    "type": "Breakfast",
+    "time": 5,
+    "fiber": 8,
+    "protein": 12,
+    "sat": "very low",
+    "cal": 380,
+    "why": "Oats carry beta-glucan, a soluble fiber shown to lower LDL; peanut butter swaps in unsaturated fat.",
+    "tags": [
+      "high-fiber",
+      "make-ahead",
+      "no-cook",
+      "soy-protein"
+    ],
+    "ingredients": [
+      "½ cup rolled oats",
+      "½ cup soy or low-fat milk",
+      "1 tbsp natural peanut butter",
+      "½ banana, sliced",
+      "1 tsp chia seeds (optional)",
+      "Pinch of cinnamon"
+    ],
+    "steps": [
+      "Stir oats, milk, peanut butter and chia together in a jar.",
+      "Top with banana and cinnamon.",
+      "Refrigerate overnight. Eat cold, or warm 60 seconds."
+    ]
+  },
+  {
+    "id": "berry-walnut-oatmeal",
+    "name": "Berry Walnut Oatmeal",
+    "type": "Breakfast",
+    "time": 10,
+    "fiber": 9,
+    "protein": 10,
+    "sat": "very low",
+    "cal": 360,
+    "why": "Soluble fiber from oats plus walnuts (omega-3 ALA) — both gently push LDL down.",
+    "tags": [
+      "high-fiber",
+      "quick",
+      "omega-3"
+    ],
+    "ingredients": [
+      "½ cup rolled oats",
+      "1 cup soy or low-fat milk (or water)",
+      "½ cup frozen mixed berries",
+      "2 tbsp chopped walnuts",
+      "Cinnamon to taste"
+    ],
+    "steps": [
+      "Simmer oats with milk 4–5 min, stirring.",
+      "Stir in berries for the last minute.",
+      "Top with walnuts and cinnamon."
+    ]
+  },
+  {
+    "id": "tofu-scramble",
+    "name": "Turmeric Tofu Scramble",
+    "type": "Breakfast",
+    "time": 15,
+    "fiber": 4,
+    "protein": 18,
+    "sat": "very low",
+    "cal": 340,
+    "why": "Tofu is soy protein with zero cholesterol — a heart-smart stand-in for scrambled eggs.",
+    "tags": [
+      "high-protein",
+      "cholesterol-free",
+      "savory"
+    ],
+    "ingredients": [
+      "½ block firm tofu, crumbled",
+      "1 tsp olive oil",
+      "¼ onion, diced",
+      "½ bell pepper, diced",
+      "1 handful spinach",
+      "¼ tsp turmeric",
+      "¼ tsp cumin",
+      "Salt & black pepper",
+      "Whole-grain toast to serve"
+    ],
+    "steps": [
+      "Sauté onion and pepper in olive oil until soft.",
+      "Add crumbled tofu, turmeric, cumin, salt and pepper; cook 5 min.",
+      "Fold in spinach until wilted. Serve on toast."
+    ]
+  },
+  {
+    "id": "red-lentil-dal",
+    "name": "Red Lentil Dal with Rice",
+    "type": "Dinner",
+    "time": 30,
+    "fiber": 11,
+    "protein": 16,
+    "sat": "very low",
+    "cal": 360,
+    "why": "Lentils are packed with soluble fiber and plant protein, with essentially no saturated fat.",
+    "tags": [
+      "high-fiber",
+      "high-protein",
+      "freezer-friendly",
+      "one-pot"
+    ],
+    "ingredients": [
+      "1 cup red lentils, rinsed",
+      "1 tbsp olive oil",
+      "1 onion, diced",
+      "3 cloves garlic, minced",
+      "1 tsp ground ginger (or fresh)",
+      "1 can diced tomatoes",
+      "1 tbsp curry powder",
+      "1 tsp cumin",
+      "2 cups water",
+      "Cooked brown rice to serve",
+      "Spinach (optional)"
+    ],
+    "steps": [
+      "Sauté onion, garlic and ginger in olive oil.",
+      "Add curry powder and cumin; stir 30 sec.",
+      "Add lentils, tomatoes and water; simmer 20 min until soft.",
+      "Stir in spinach if using. Serve over rice."
+    ]
+  },
+  {
+    "id": "black-bean-tacos",
+    "name": "Black Bean Tacos",
+    "type": "Dinner",
+    "time": 20,
+    "fiber": 12,
+    "protein": 13,
+    "sat": "low",
+    "cal": 400,
+    "why": "Beans plus avocado deliver soluble fiber and unsaturated fat; corn tortillas keep it light.",
+    "tags": [
+      "high-fiber",
+      "quick",
+      "weeknight"
+    ],
+    "ingredients": [
+      "1 can black beans, drained",
+      "6 corn tortillas",
+      "½ onion, diced",
+      "1 bell pepper, diced",
+      "1 tsp cumin",
+      "1 tsp chili powder",
+      "Salsa",
+      "½ avocado, sliced",
+      "Lime wedges"
+    ],
+    "steps": [
+      "Sauté onion and pepper until soft.",
+      "Add beans, cumin and chili powder; mash slightly and warm through.",
+      "Warm tortillas. Fill with beans, salsa, avocado and a squeeze of lime."
+    ]
+  },
+  {
+    "id": "chickpea-spinach-curry",
+    "name": "Chickpea & Spinach Curry",
+    "type": "Dinner",
+    "time": 30,
+    "fiber": 11,
+    "protein": 14,
+    "sat": "low",
+    "cal": 380,
+    "why": "Tomato-based instead of coconut keeps saturated fat low while chickpeas pile on fiber.",
+    "tags": [
+      "high-fiber",
+      "high-protein",
+      "one-pot"
+    ],
+    "ingredients": [
+      "2 cans chickpeas, drained",
+      "1 tbsp olive oil",
+      "1 onion, diced",
+      "3 cloves garlic, minced",
+      "1 can diced tomatoes",
+      "1 tbsp curry powder",
+      "1 tsp cumin",
+      "2 handfuls spinach",
+      "Cooked rice to serve"
+    ],
+    "steps": [
+      "Sauté onion and garlic in olive oil.",
+      "Add spices, then tomatoes and chickpeas; simmer 15 min.",
+      "Stir in spinach until wilted. Serve over rice."
+    ]
+  },
+  {
+    "id": "lentil-veg-soup",
+    "name": "Hearty Lentil & Vegetable Soup",
+    "type": "Dinner",
+    "time": 40,
+    "fiber": 13,
+    "protein": 15,
+    "sat": "very low",
+    "cal": 260,
+    "why": "A soluble-fiber powerhouse that makes a big batch and freezes beautifully.",
+    "tags": [
+      "low-cal",
+      "high-fiber",
+      "freezer-friendly",
+      "one-pot",
+      "batch"
+    ],
+    "ingredients": [
+      "1 cup brown or green lentils",
+      "1 tbsp olive oil",
+      "1 onion, diced",
+      "2 carrots, diced",
+      "2 celery stalks, diced",
+      "3 cloves garlic, minced",
+      "1 can diced tomatoes",
+      "6 cups low-sodium veg broth",
+      "1 tsp cumin",
+      "1 tsp oregano",
+      "1 bay leaf"
+    ],
+    "steps": [
+      "Sauté onion, carrot and celery in olive oil 5 min.",
+      "Add garlic and spices, then lentils, tomatoes and broth.",
+      "Simmer 30 min until lentils are tender. Remove bay leaf."
+    ]
+  },
+  {
+    "id": "minestrone",
+    "name": "Minestrone",
+    "type": "Dinner",
+    "time": 35,
+    "fiber": 12,
+    "protein": 13,
+    "sat": "low",
+    "cal": 300,
+    "why": "Beans, vegetables and whole-grain pasta; going light on cheese keeps saturated fat down.",
+    "tags": [
+      "low-cal",
+      "high-fiber",
+      "batch",
+      "one-pot"
+    ],
+    "ingredients": [
+      "1 can cannellini beans, drained",
+      "¾ cup whole wheat pasta",
+      "1 can diced tomatoes",
+      "1 carrot, diced",
+      "1 celery stalk, diced",
+      "1 onion, diced",
+      "3 cloves garlic",
+      "2 handfuls spinach or kale",
+      "5 cups veg broth",
+      "1 tsp oregano",
+      "1 tbsp olive oil"
+    ],
+    "steps": [
+      "Sauté onion, carrot, celery and garlic in olive oil.",
+      "Add tomatoes, broth, beans and oregano; simmer 15 min.",
+      "Add pasta; cook until al dente.",
+      "Stir in greens until wilted."
+    ]
+  },
+  {
+    "id": "three-bean-chili",
+    "name": "Three-Bean Veggie Chili",
+    "type": "Dinner",
+    "time": 40,
+    "fiber": 15,
+    "protein": 18,
+    "sat": "low",
+    "cal": 330,
+    "why": "Three kinds of beans stack soluble fiber; no meat means no saturated fat.",
+    "tags": [
+      "high-fiber",
+      "high-protein",
+      "freezer-friendly",
+      "batch"
+    ],
+    "ingredients": [
+      "1 can kidney beans",
+      "1 can black beans",
+      "1 can pinto beans",
+      "1 can diced tomatoes",
+      "2 tbsp tomato paste",
+      "1 onion, diced",
+      "1 bell pepper, diced",
+      "3 cloves garlic",
+      "1 tbsp chili powder",
+      "1 tsp cumin",
+      "1 tsp smoked paprika",
+      "1 tbsp olive oil"
+    ],
+    "steps": [
+      "Sauté onion, pepper and garlic in olive oil.",
+      "Stir in spices and tomato paste for 1 min.",
+      "Add tomatoes and all beans; simmer 25 min, stirring now and then."
+    ]
+  },
+  {
+    "id": "tofu-broccoli-stirfry",
+    "name": "Tofu & Broccoli Stir-Fry",
+    "type": "Dinner",
+    "time": 25,
+    "fiber": 7,
+    "protein": 20,
+    "sat": "low",
+    "cal": 390,
+    "why": "Soy protein plus a pile of vegetables, with just a touch of oil.",
+    "tags": [
+      "high-protein",
+      "quick",
+      "cholesterol-free"
+    ],
+    "ingredients": [
+      "1 block firm tofu, cubed",
+      "1 head broccoli, florets",
+      "1 bell pepper, sliced",
+      "1 carrot, sliced",
+      "3 cloves garlic",
+      "1 tsp ground ginger (or fresh)",
+      "2 tbsp low-sodium soy sauce",
+      "1 tbsp olive oil",
+      "Cooked brown rice to serve"
+    ],
+    "steps": [
+      "Brown tofu cubes in oil; set aside.",
+      "Stir-fry broccoli, pepper and carrot 4–5 min.",
+      "Add garlic, ginger, soy sauce and tofu; toss 2 min. Serve over rice."
+    ]
+  },
+  {
+    "id": "white-beans-greens-pasta",
+    "name": "White Beans & Greens Pasta",
+    "type": "Dinner",
+    "time": 20,
+    "fiber": 10,
+    "protein": 16,
+    "sat": "low",
+    "cal": 450,
+    "why": "Olive oil and beans stand in for cream and cheese — fiber up, saturated fat down.",
+    "tags": [
+      "high-fiber",
+      "quick",
+      "weeknight"
+    ],
+    "ingredients": [
+      "3 cups whole wheat pasta",
+      "1 can cannellini beans, drained",
+      "3 handfuls spinach or kale",
+      "4 cloves garlic, sliced",
+      "2 tbsp olive oil",
+      "½ lemon, juiced",
+      "Pinch red pepper flakes",
+      "Black pepper"
+    ],
+    "steps": [
+      "Boil pasta; reserve ½ cup water before draining.",
+      "Gently sizzle garlic and red pepper in olive oil.",
+      "Add beans and greens until wilted, splash in pasta water.",
+      "Toss with pasta and lemon; finish with black pepper."
+    ]
+  },
+  {
+    "id": "stuffed-sweet-potato",
+    "name": "Stuffed Sweet Potato with Black Beans",
+    "type": "Dinner",
+    "time": 45,
+    "fiber": 12,
+    "protein": 11,
+    "sat": "very low",
+    "cal": 310,
+    "why": "Sweet potato and beans bring fiber and potassium — skip the sour cream and cheese.",
+    "tags": [
+      "low-cal",
+      "high-fiber",
+      "hands-off",
+      "gluten-free"
+    ],
+    "ingredients": [
+      "2 sweet potatoes",
+      "1 can black beans, drained",
+      "½ cup corn",
+      "Salsa",
+      "½ tsp cumin",
+      "Lime",
+      "2 scallions, sliced",
+      "Low-fat plain yogurt (optional dollop)"
+    ],
+    "steps": [
+      "Bake sweet potatoes at 400°F / 200°C for 40 min until soft.",
+      "Warm beans and corn with cumin.",
+      "Split potatoes; pile on beans, corn, salsa, scallions and lime."
+    ]
+  },
+  {
+    "id": "tahini-chickpea-bowl",
+    "name": "Lemon-Tahini Chickpea Quinoa Bowl",
+    "type": "Lunch",
+    "time": 25,
+    "fiber": 10,
+    "protein": 15,
+    "sat": "low",
+    "cal": 440,
+    "why": "Quinoa and chickpeas for protein; tahini and olive oil are unsaturated fats.",
+    "tags": [
+      "high-protein",
+      "high-fiber",
+      "make-ahead"
+    ],
+    "ingredients": [
+      "1 cup quinoa, cooked",
+      "1 can chickpeas, drained",
+      "1 cucumber, diced",
+      "1 cup cherry tomatoes, halved",
+      "¼ red onion, sliced",
+      "2 tbsp tahini",
+      "1 lemon, juiced",
+      "1 clove garlic, grated",
+      "1 tbsp olive oil",
+      "Water to thin"
+    ],
+    "steps": [
+      "Whisk tahini, lemon, garlic, olive oil and a little water into a dressing.",
+      "Combine quinoa, chickpeas, cucumber, tomato and onion.",
+      "Toss with dressing."
+    ]
+  },
+  {
+    "id": "med-chickpea-salad",
+    "name": "Big Mediterranean Chickpea Salad",
+    "type": "Lunch",
+    "time": 15,
+    "fiber": 9,
+    "protein": 12,
+    "sat": "low",
+    "cal": 290,
+    "why": "Olive oil and chickpeas make a fast, no-cook, heart-healthy lunch.",
+    "tags": [
+      "low-cal",
+      "quick",
+      "no-cook",
+      "high-fiber"
+    ],
+    "ingredients": [
+      "1 can chickpeas, drained",
+      "4 cups mixed greens",
+      "1 cucumber, diced",
+      "2 tomatoes, chopped",
+      "¼ red onion, sliced",
+      "2 tbsp olive oil",
+      "1 tbsp red wine vinegar",
+      "1 tsp oregano",
+      "A few olives (optional)"
+    ],
+    "steps": [
+      "Whisk olive oil, vinegar and oregano.",
+      "Toss everything together.",
+      "Season and serve."
+    ]
+  },
+  {
+    "id": "veg-fried-rice",
+    "name": "Veggie Fried Brown Rice with Edamame",
+    "type": "Dinner",
+    "time": 20,
+    "fiber": 8,
+    "protein": 16,
+    "sat": "low",
+    "cal": 410,
+    "why": "Edamame adds soy protein and fiber; one egg white keeps cholesterol negligible.",
+    "tags": [
+      "quick",
+      "uses-leftovers",
+      "high-protein"
+    ],
+    "ingredients": [
+      "3 cups cooked brown rice (cold)",
+      "1 cup frozen edamame or peas",
+      "1 carrot, diced",
+      "1 bell pepper, diced",
+      "3 cloves garlic",
+      "2 scallions",
+      "2 tbsp low-sodium soy sauce",
+      "1 tbsp olive oil",
+      "1 egg white (optional)"
+    ],
+    "steps": [
+      "Stir-fry carrot and pepper in oil 3 min.",
+      "Add garlic, edamame and rice; toss until hot.",
+      "Push aside; scramble egg white if using, then mix in.",
+      "Finish with soy sauce and scallions."
+    ]
+  },
+  {
+    "id": "hummus-veg-plate",
+    "name": "Hummus & Veg Plate or Wrap",
+    "type": "Snack",
+    "time": 10,
+    "fiber": 8,
+    "protein": 9,
+    "sat": "very low",
+    "cal": 390,
+    "why": "A chickpea-and-tahini base with soluble fiber and unsaturated fat — snack or light lunch.",
+    "tags": [
+      "no-cook",
+      "snack",
+      "high-fiber"
+    ],
+    "ingredients": [
+      "1 can chickpeas (or store hummus)",
+      "2 tbsp tahini",
+      "1 lemon, juiced",
+      "1 clove garlic",
+      "1 tbsp olive oil",
+      "Carrots, cucumber, bell pepper, sliced",
+      "Whole wheat pita"
+    ],
+    "steps": [
+      "Blend chickpeas, tahini, lemon, garlic, olive oil and a splash of water.",
+      "Serve with raw veg and pita — or roll into a wrap."
+    ]
+  },
+  {
+    "id": "light-lemon-chickpea-salad",
+    "name": "Light Lemon & Herb Chickpea Salad",
+    "type": "Lunch",
+    "time": 10,
+    "fiber": 9,
+    "protein": 11,
+    "sat": "very low",
+    "cal": 220,
+    "why": "Almost all fiber and protein with barely any fat — chickpeas and crisp veg make it filling for very few calories.",
+    "tags": [
+      "low-cal",
+      "high-fiber",
+      "no-cook",
+      "quick"
+    ],
+    "ingredients": [
+      "1 can chickpeas, drained",
+      "1 cucumber, diced",
+      "1 cup cherry tomatoes, halved",
+      "¼ red onion, finely diced",
+      "Small handful parsley, chopped",
+      "1 lemon, juiced",
+      "1 tsp olive oil",
+      "Salt & black pepper"
+    ],
+    "steps": [
+      "Toss chickpeas, cucumber, tomato, onion and parsley together.",
+      "Dress with lemon, the teaspoon of olive oil, salt and pepper.",
+      "Chill 10 minutes if you have time — it's even better cold."
+    ]
+  }
+]
