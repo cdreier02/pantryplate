@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Search, Star, Plus, X, Clock, Heart, Trash2, ChevronDown,
-  Leaf, Sprout, RotateCcw, Check,
+  Leaf, Sprout, RotateCcw, Check, CalendarDays, LayoutGrid, ShoppingBasket,
 } from "lucide-react";
 import { SEED_MEALS, CORE_PANTRY } from "./seedMeals.js";
+import { buildWeek, isValidPlan, DEFAULT_CONFIG } from "./weekPlan.js";
+import Planner from "./Planner.jsx";
+import Shopping from "./Shopping.jsx";
 
 /* ----------------------------------------------------------------------------
    PantryPlate — a growable database of simple, LDL-friendly vegetarian meals.
@@ -63,6 +66,10 @@ export default function PantryPlate() {
   );
   const [custom, setCustom] = useState(() => loadKey("meals:custom", []));
   const [favorites, setFavorites] = useState(() => loadKey("meals:favorites", []));
+  const [view, setView] = useState("browse");
+  const [plan, setPlan] = useState(() => loadKey("meals:plan", null));
+  const [planConfig, setPlanConfig] = useState(() => loadKey("meals:planConfig", null));
+  const [shopChecked, setShopChecked] = useState(() => loadKey("meals:shopping:checked", {}));
 
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All");
@@ -104,6 +111,55 @@ export default function PantryPlate() {
     allMeals.forEach((m) => m.tags?.forEach((t) => s.add(t)));
     return [...s].sort();
   }, [allMeals]);
+
+  const updatePlan = useCallback((next) => {
+    setPlan(next);
+    saveKey("meals:plan", next);
+  }, []);
+
+  const toggleShop = useCallback((key) => {
+    setShopChecked((prev) => {
+      const next = { ...prev };
+      if (next[key]) delete next[key]; else next[key] = true;
+      saveKey("meals:shopping:checked", next);
+      return next;
+    });
+  }, []);
+
+  const clearShop = useCallback(() => {
+    setShopChecked({});
+    saveKey("meals:shopping:checked", {});
+  }, []);
+
+  const regeneratePlan = useCallback((cfg) => {
+    const fresh = buildWeek(allMeals, cfg);
+    setPlan(fresh);
+    saveKey("meals:plan", fresh);
+  }, [allMeals]);
+
+  const changeCount = useCallback((kind, delta) => {
+    const base = planConfig || DEFAULT_CONFIG;
+    const key = kind === "dinner" ? "nDinners" : "nFlex";
+    const next = { ...base, [key]: Math.max(1, Math.min(7, base[key] + delta)) };
+    if (next[key] === base[key]) return;
+    setPlanConfig(next);
+    saveKey("meals:planConfig", next);
+    regeneratePlan(next);
+  }, [planConfig, regeneratePlan]);
+
+  // Build a batch-cooked week the first time the planner/shopping is opened, or
+  // once on upgrade (no saved config) so the new leftover model takes effect.
+  useEffect(() => {
+    if ((view !== "plan" && view !== "shopping") || allMeals.length === 0) return;
+    const cfg = planConfig || DEFAULT_CONFIG;
+    setPlan((prev) => {
+      if (isValidPlan(prev) && planConfig) return prev;
+      const fresh = buildWeek(allMeals, cfg);
+      saveKey("meals:plan", fresh);
+      return fresh;
+    });
+    if (!planConfig) { setPlanConfig(cfg); saveKey("meals:planConfig", cfg); }
+  }, [view, allMeals, planConfig]);
 
   const toggleFav = useCallback((id) => {
     setFavorites((prev) => {
@@ -173,6 +229,25 @@ export default function PantryPlate() {
         </button>
       </header>
 
+      <div className="pp-viewtoggle" role="tablist" aria-label="View">
+        <button role="tab" aria-selected={view === "browse"}
+          className={"pp-viewtab" + (view === "browse" ? " on" : "")}
+          onClick={() => setView("browse")}>
+          <LayoutGrid size={15} strokeWidth={2.2} /> Browse
+        </button>
+        <button role="tab" aria-selected={view === "plan"}
+          className={"pp-viewtab" + (view === "plan" ? " on" : "")}
+          onClick={() => setView("plan")}>
+          <CalendarDays size={15} strokeWidth={2.2} /> Plan week
+        </button>
+        <button role="tab" aria-selected={view === "shopping"}
+          className={"pp-viewtab" + (view === "shopping" ? " on" : "")}
+          onClick={() => setView("shopping")}>
+          <ShoppingBasket size={15} strokeWidth={2.2} /> Shopping
+        </button>
+      </div>
+
+      {view === "browse" && (<>
       <button className="pp-why" onClick={() => setWhyOpen((v) => !v)} aria-expanded={whyOpen}>
         <Heart size={14} strokeWidth={2.2} />
         How these meals keep cholesterol low
@@ -277,6 +352,18 @@ export default function PantryPlate() {
       )}
 
       <CollapsiblePantry open={pantryOpen} setOpen={setPantryOpen} />
+      </>)}
+
+      {view === "plan" && (
+        <Planner allMeals={allMeals} plan={plan} config={planConfig || DEFAULT_CONFIG}
+          onChange={updatePlan} onShuffle={() => regeneratePlan(planConfig || DEFAULT_CONFIG)}
+          onCountChange={changeCount} onViewRecipe={setOpen} />
+      )}
+
+      {view === "shopping" && (
+        <Shopping allMeals={allMeals} plan={plan} checked={shopChecked}
+          onToggle={toggleShop} onClear={clearShop} onPlan={() => setView("plan")} />
+      )}
 
       {open && (
         <Modal onClose={() => setOpen(null)}>
@@ -674,5 +761,126 @@ body::before{
   .pp-header,.pp-why,.pp-controls,.pp-tagrow,.pp-count,.pp-card,.pp-overlay,.pp-modal{animation:none}
   .pp-mark:hover,.pp-add:hover{transform:none}
   .pp-card:hover::after{transition:none}
+}
+
+/* ── Weekly planner ─────────────────────────────────────────────────────── */
+.pp-viewtoggle{display:inline-flex; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:4px; margin-bottom:18px; box-shadow:0 4px 14px -10px rgba(22,36,27,.4)}
+.pp-viewtab{display:inline-flex; align-items:center; gap:6px; border:none; background:none; color:var(--soft); font-weight:600; font-size:13.5px; padding:8px 16px; border-radius:9px; transition:background .2s, color .2s}
+.pp-viewtab:hover{color:var(--green-mid)}
+.pp-viewtab.on{background:var(--green); color:#fff}
+
+.pp-plan{animation:pp-rise .5s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-plan-head{display:flex; justify-content:space-between; align-items:flex-end; gap:14px; margin-bottom:16px; flex-wrap:wrap}
+.pp-plan-title{font-size:20px; font-weight:800; color:var(--green)}
+.pp-plan-head .pp-fine{margin-top:3px; max-width:46ch}
+.pp-shuffle{display:inline-flex; align-items:center; gap:7px; background:linear-gradient(150deg,#2E6A45,#1B4429); color:#fff; border:none; border-radius:10px; padding:10px 16px; font-weight:600; font-size:14px; box-shadow:0 8px 18px -10px rgba(31,77,50,.6); transition:transform .2s, box-shadow .2s}
+.pp-shuffle:hover{transform:translateY(-1px); box-shadow:0 12px 22px -10px rgba(31,77,50,.75)}
+.pp-shuffle:active{transform:translateY(0)}
+.pp-shuffle svg{transition:transform .45s ease}
+.pp-shuffle:hover svg{transform:rotate(180deg)}
+
+.pp-week{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px}
+.pp-day{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:10px; animation:pp-rise .5s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-dayname{font-family:var(--fd); font-weight:700; font-size:14px; color:var(--green); letter-spacing:-.01em; padding:1px 2px 0}
+
+.pp-slot{position:relative; background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:11px 12px; cursor:grab; transition:transform .18s, box-shadow .18s, border-color .18s, background .18s; touch-action:manipulation}
+.pp-slot:hover{border-color:var(--sprout); background:#fff}
+.pp-slot:active{cursor:grabbing}
+.pp-slot.flex{background:#FBFDF7}
+.pp-slot.over{border-color:var(--green-mid); box-shadow:0 0 0 2px rgba(63,122,80,.28); background:#fff}
+.pp-slot.dragging{opacity:.35}
+.pp-slot.empty{display:flex; flex-direction:column; gap:6px; border-style:dashed; cursor:pointer; align-items:flex-start}
+.pp-slot-empty{font-size:13px; font-weight:600; color:var(--green-mid)}
+.pp-slot-kind{font-family:var(--fm); font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--soft)}
+
+.pp-slot-face{display:flex; flex-direction:column; gap:6px}
+.pp-slot-name{font-size:13.5px; font-weight:700; line-height:1.2; color:var(--ink); padding-right:20px}
+.pp-slot-stats{display:flex; flex-wrap:wrap; gap:3px 10px; font-family:var(--fm); font-size:10.5px; color:var(--soft); align-items:center}
+.pp-slot-stats b{color:var(--green); font-weight:600}
+.pp-slot-stats span{display:inline-flex; align-items:center; gap:3px}
+.pp-slot-grip{position:absolute; right:8px; bottom:8px; color:#C7CFC0; pointer-events:none}
+.pp-slot-view{position:absolute; top:9px; right:9px; background:rgba(255,255,255,.9); border:1px solid var(--line); border-radius:7px; width:25px; height:25px; display:grid; place-items:center; color:var(--soft); padding:0; z-index:2}
+.pp-slot-view:hover{color:var(--green); border-color:var(--sprout)}
+.pp-slot-face.drag{background:#fff; border:1px solid var(--sprout); border-radius:12px; padding:11px 12px; box-shadow:0 18px 40px -14px rgba(22,36,27,.55); cursor:grabbing; width:220px}
+
+.pp-picker{max-width:520px}
+.pp-picker-search{margin:14px 0 12px; flex:1 1 auto}
+.pp-picker-list{display:flex; flex-direction:column; gap:7px; max-height:55vh; overflow-y:auto; margin:0 -4px; padding:2px 4px}
+.pp-picker-item{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:4px 10px; text-align:left; background:var(--bg); border:1px solid var(--line); border-radius:11px; padding:10px 12px; transition:border-color .15s, background .15s}
+.pp-picker-item:hover{border-color:var(--sprout); background:#fff}
+.pp-picker-item.current{border-color:var(--green-mid); background:#EAF1E2}
+.pp-picker-item .pp-type{grid-column:1; grid-row:1 / span 2; align-self:center}
+.pp-picker-name{grid-column:2; grid-row:1; font-weight:600; font-size:14px; color:var(--ink); line-height:1.2}
+.pp-picker-stats{grid-column:2; grid-row:2; font-family:var(--fm); font-size:10.5px; color:var(--soft)}
+.pp-picker-swap{grid-column:3; grid-row:1 / span 2; color:#C7CFC0}
+.pp-picker-cur{grid-column:3; grid-row:1 / span 2; font-family:var(--fm); font-size:10px; color:var(--green-mid); background:#fff; border:1px solid var(--line); padding:2px 7px; border-radius:6px}
+
+@media (prefers-reduced-motion:reduce){
+  .pp-plan,.pp-day,.pp-slot{animation:none; transition:none}
+  .pp-shuffle:hover svg{transform:none}
+}
+
+/* planner: dish-count steppers */
+.pp-steppers{display:flex; flex-wrap:wrap; gap:10px 24px; align-items:center; margin:2px 0 16px; padding:12px 16px; background:var(--surface); border:1px solid var(--line); border-radius:14px}
+.pp-stepper{display:flex; align-items:center; gap:11px}
+.pp-stepper-label{font-size:13px; font-weight:600; color:var(--soft)}
+.pp-stepper-ctl{display:inline-flex; align-items:center; gap:5px}
+.pp-stepper-ctl button{width:27px; height:27px; display:grid; place-items:center; background:var(--bg); border:1px solid var(--line); border-radius:8px; color:var(--green)}
+.pp-stepper-ctl button:hover:not(:disabled){border-color:var(--sprout); background:#E6F0DD}
+.pp-stepper-ctl button:disabled{opacity:.35; cursor:not-allowed}
+.pp-stepper-val{font-family:var(--fm); font-size:14px; font-weight:600; color:var(--ink); min-width:18px; text-align:center}
+
+/* planner: "cooking this week" summary */
+.pp-cook{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px}
+.pp-cook-col{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:13px 14px}
+.pp-cook-title{display:flex; align-items:center; gap:6px; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--amber); margin-bottom:10px}
+.pp-cook-list{display:flex; flex-direction:column; gap:6px}
+.pp-cook-item{display:flex; flex-direction:column; gap:1px; text-align:left; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:8px 11px; transition:border-color .15s, background .15s}
+.pp-cook-item:hover{border-color:var(--sprout); background:#fff}
+.pp-cook-name{font-size:13.5px; font-weight:600; color:var(--ink); line-height:1.2}
+.pp-cook-meta{font-family:var(--fm); font-size:10.5px; color:var(--green-mid)}
+
+/* planner: leftover styling */
+.pp-slot-tags{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.pp-leftover{font-family:var(--fm); font-size:9.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:#8a5d12; background:var(--amber-soft); padding:2px 6px; border-radius:5px}
+.pp-slot.leftover{background:#FBF6EC}
+
+@media (max-width:560px){
+  .pp-cook{grid-template-columns:1fr}
+}
+
+/* ── Shopping list ──────────────────────────────────────────────────────── */
+.pp-shop{animation:pp-rise .5s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-shop-head{display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap}
+.pp-shop-head .pp-fine{margin-top:3px; max-width:52ch}
+.pp-shop-clear{display:inline-flex; align-items:center; gap:6px; background:none; border:1px solid var(--line); color:var(--soft); border-radius:9px; padding:7px 12px; font-weight:600; font-size:12.5px}
+.pp-shop-clear:hover{border-color:var(--sprout); color:var(--green-mid)}
+
+.pp-shop-progress{display:flex; align-items:center; gap:12px; margin:14px 0 22px}
+.pp-shop-bar{flex:1; height:8px; background:#E2E9DA; border-radius:99px; overflow:hidden}
+.pp-shop-bar span{display:block; height:100%; background:linear-gradient(90deg,var(--sprout),var(--green-mid)); border-radius:99px; transition:width .35s cubic-bezier(.2,.7,.2,1)}
+.pp-shop-count{font-family:var(--fm); font-size:12px; color:var(--soft); white-space:nowrap}
+
+.pp-shop-section{margin-bottom:20px}
+.pp-shop-secname{display:flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--amber); margin-bottom:10px}
+.pp-shop-secname span{font-family:var(--fm); font-size:10px; color:var(--soft); background:#EAF1E2; border-radius:6px; padding:1px 7px; letter-spacing:0}
+.pp-shop-items{display:grid; grid-template-columns:repeat(auto-fill,minmax(232px,1fr)); gap:8px}
+
+.pp-shop-item{display:flex; align-items:center; gap:11px; text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:11px 13px; transition:border-color .15s, background .15s, opacity .2s}
+.pp-shop-item:hover{border-color:var(--sprout)}
+.pp-shop-box{flex:0 0 auto; width:21px; height:21px; border:2px solid #CBD5C0; border-radius:7px; display:grid; place-items:center; color:#fff; transition:background .15s, border-color .15s}
+.pp-shop-item:hover .pp-shop-box{border-color:var(--sprout)}
+.pp-shop-text{display:flex; flex-direction:column; gap:1px; min-width:0; flex:1}
+.pp-shop-name{font-size:14px; font-weight:600; color:var(--ink); line-height:1.25}
+.pp-shop-amt{font-family:var(--fm); font-size:11px; color:var(--green-mid)}
+.pp-shop-meals{flex:0 0 auto; font-family:var(--fm); font-size:10px; color:var(--soft); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:1px 6px}
+.pp-shop-item.checked{background:var(--bg); opacity:.6}
+.pp-shop-item.checked .pp-shop-box{background:var(--green-mid); border-color:var(--green-mid)}
+.pp-shop-item.checked .pp-shop-name{text-decoration:line-through; color:var(--soft)}
+.pp-shop-item.checked .pp-shop-amt{text-decoration:line-through}
+
+@media (prefers-reduced-motion:reduce){
+  .pp-shop{animation:none}
+  .pp-shop-bar span{transition:none}
 }
 `;
