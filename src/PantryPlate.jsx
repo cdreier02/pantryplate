@@ -271,9 +271,6 @@ export default function PantryPlate() {
           <h1>Pantry&thinsp;Plate</h1>
           <p>Simple vegetarian meals, built to keep cholesterol and calories low — all from one shared core pantry.</p>
         </div>
-        <button className="pp-add" onClick={() => setAdding(true)}>
-          <Plus size={16} strokeWidth={2.4} /> Add meal
-        </button>
       </header>
 
       <div className="pp-viewtoggle" role="tablist" aria-label="View">
