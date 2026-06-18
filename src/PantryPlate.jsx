@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
   Search, Star, Plus, X, Clock, Heart, Trash2, ChevronDown,
   Leaf, Sprout, RotateCcw, Check, CalendarDays, LayoutGrid, ShoppingBasket,
-  CalendarPlus, CalendarCheck, Sun,
+  CalendarPlus, CalendarCheck, Sun, UserRound,
 } from "lucide-react";
 import { SEED_MEALS, CORE_PANTRY } from "./seedMeals.js";
 import {
@@ -58,12 +58,14 @@ function saveKey(key, value) {
   if (!STORAGE_OK) return;
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    // Let the cloud-sync layer (App) know something changed.
+    window.dispatchEvent(new CustomEvent("pp:sync"));
   } catch (e) {
     console.error("Could not save", key, e);
   }
 }
 
-export default function PantryPlate() {
+export default function PantryPlate({ currentProfile, onSwitchProfile }) {
   // Synchronous init → first paint is never empty: cached meals if present,
   // otherwise the bundled seed set. The mount effect upgrades this from the network.
   const [remoteMeals, setRemoteMeals] = useState(
@@ -271,6 +273,11 @@ export default function PantryPlate() {
           <h1>Pantry&thinsp;Plate</h1>
           <p>Simple vegetarian meals, built to keep cholesterol and calories low — all from one shared core pantry.</p>
         </div>
+        {currentProfile && (
+          <button className="pp-profile" onClick={onSwitchProfile} title="Switch profile">
+            <UserRound size={15} strokeWidth={2.2} /> {currentProfile.name}
+          </button>
+        )}
       </header>
 
       <div className="pp-viewtoggle" role="tablist" aria-label="View">
@@ -649,6 +656,8 @@ const CSS = `
 .pp-header p{margin:4px 0 0; font-size:14px; color:var(--soft)}
 .pp-add{display:inline-flex; align-items:center; gap:6px; background:var(--green); color:#fff; border:none; border-radius:10px; padding:10px 14px; font-weight:600; font-size:14px; white-space:nowrap}
 .pp-add:hover{background:#173d27}
+.pp-profile{display:inline-flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--line); color:var(--green); border-radius:10px; padding:8px 13px; font-weight:600; font-size:13.5px; white-space:nowrap; flex:0 0 auto}
+.pp-profile:hover{border-color:var(--sprout); background:#E6F0DD}
 
 .pp-why{display:inline-flex; align-items:center; gap:7px; background:none; border:none; color:var(--green-mid); font-weight:600; font-size:13px; padding:4px 0; margin-bottom:2px}
 .pp-why .rot{transform:rotate(180deg)}
