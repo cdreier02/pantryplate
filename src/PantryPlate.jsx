@@ -2,15 +2,16 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
   Search, Star, Plus, X, Clock, Heart, Trash2, ChevronDown,
   Leaf, Sprout, RotateCcw, Check, CalendarDays, LayoutGrid, ShoppingBasket,
-  CalendarPlus, CalendarCheck,
+  CalendarPlus, CalendarCheck, Sun,
 } from "lucide-react";
 import { SEED_MEALS, CORE_PANTRY } from "./seedMeals.js";
 import {
   buildPlan, isValidPlan, migratePlan, emptyPlan, DEFAULT_CONFIG,
-  addDishById, removeDishById, planHasDish, isKindFull, kindForMeal,
+  addDishById, removeDishById, planHasDish, isKindFull, kindForMeal, shufflePlan,
 } from "./weekPlan.js";
 import Planner from "./Planner.jsx";
 import Shopping from "./Shopping.jsx";
+import Today from "./Today.jsx";
 
 /* ----------------------------------------------------------------------------
    PantryPlate — a growable database of simple, LDL-friendly vegetarian meals.
@@ -70,9 +71,11 @@ export default function PantryPlate() {
   );
   const [custom, setCustom] = useState(() => loadKey("meals:custom", []));
   const [favorites, setFavorites] = useState(() => loadKey("meals:favorites", []));
-  const [view, setView] = useState("browse");
+  const [view, setView] = useState("today");
   const [plan, setPlan] = useState(() => migratePlan(loadKey("meals:plan", null)));
   const [shopChecked, setShopChecked] = useState(() => loadKey("meals:shopping:checked", {}));
+  const [cooked, setCooked] = useState(() => loadKey("meals:cooked", {}));
+  const [prepDay, setPrepDay] = useState(() => loadKey("meals:prepDay", 6)); // Mon=0…Sun=6; default Sunday
   const [toast, setToast] = useState(null);
 
   const [query, setQuery] = useState("");
@@ -120,6 +123,23 @@ export default function PantryPlate() {
     setPlan(next);
     saveKey("meals:plan", next);
   }, []);
+
+  const toggleCooked = useCallback((id) => {
+    setCooked((prev) => {
+      const next = { ...prev };
+      if (next[id]) delete next[id]; else next[id] = true;
+      saveKey("meals:cooked", next);
+      return next;
+    });
+  }, []);
+  const clearCooked = useCallback(() => { setCooked({}); saveKey("meals:cooked", {}); }, []);
+  const changePrepDay = useCallback((d) => { setPrepDay(d); saveKey("meals:prepDay", d); }, []);
+
+  // A full reroll is a new week — clear cooked-ahead status with it.
+  const shuffleWeek = useCallback(() => {
+    updatePlan(shufflePlan(allMeals, plan));
+    clearCooked();
+  }, [allMeals, plan, updatePlan, clearCooked]);
 
   // Set of dish ids currently in the plan (for Browse "in your week" state).
   const planDishIds = useMemo(() => {
@@ -257,6 +277,11 @@ export default function PantryPlate() {
       </header>
 
       <div className="pp-viewtoggle" role="tablist" aria-label="View">
+        <button role="tab" aria-selected={view === "today"}
+          className={"pp-viewtab" + (view === "today" ? " on" : "")}
+          onClick={() => setView("today")}>
+          <Sun size={15} strokeWidth={2.2} /> Today
+        </button>
         <button role="tab" aria-selected={view === "browse"}
           className={"pp-viewtab" + (view === "browse" ? " on" : "")}
           onClick={() => setView("browse")}>
@@ -396,8 +421,15 @@ export default function PantryPlate() {
       <CollapsiblePantry open={pantryOpen} setOpen={setPantryOpen} />
       </>)}
 
+      {view === "today" && (
+        <Today allMeals={allMeals} plan={plan} cooked={cooked} prepDay={prepDay}
+          onToggleCooked={toggleCooked} onViewRecipe={setOpen} onGoToPlan={() => setView("plan")} />
+      )}
+
       {view === "plan" && isValidPlan(plan) && (
-        <Planner allMeals={allMeals} plan={plan} onChange={updatePlan} onViewRecipe={setOpen} />
+        <Planner allMeals={allMeals} plan={plan} cooked={cooked} onToggleCooked={toggleCooked}
+          prepDay={prepDay} onChangePrepDay={changePrepDay}
+          onShuffle={shuffleWeek} onChange={updatePlan} onViewRecipe={setOpen} />
       )}
 
       {view === "shopping" && (
@@ -818,8 +850,9 @@ body::before{
 }
 
 /* ── Weekly planner ─────────────────────────────────────────────────────── */
-.pp-viewtoggle{display:inline-flex; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:4px; margin-bottom:18px; box-shadow:0 4px 14px -10px rgba(22,36,27,.4)}
-.pp-viewtab{display:inline-flex; align-items:center; gap:6px; border:none; background:none; color:var(--soft); font-weight:600; font-size:13.5px; padding:8px 16px; border-radius:9px; transition:background .2s, color .2s}
+.pp-viewtoggle{display:inline-flex; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:4px; margin-bottom:18px; box-shadow:0 4px 14px -10px rgba(22,36,27,.4); max-width:100%; overflow-x:auto; scrollbar-width:none}
+.pp-viewtoggle::-webkit-scrollbar{display:none}
+.pp-viewtab{display:inline-flex; align-items:center; gap:6px; border:none; background:none; color:var(--soft); font-weight:600; font-size:13.5px; padding:8px 15px; border-radius:9px; white-space:nowrap; flex:0 0 auto; transition:background .2s, color .2s}
 .pp-viewtab:hover{color:var(--green-mid)}
 .pp-viewtab.on{background:var(--green); color:#fff}
 
@@ -917,6 +950,12 @@ body::before{
 .pp-cook-item:hover .pp-cook-swap{color:var(--green-mid)}
 .pp-cook-remove{flex:0 0 auto; background:none; border:none; color:#C7B0AA; display:grid; place-items:center; padding:3px; border-radius:6px}
 .pp-cook-remove:hover{color:var(--danger); background:#F6EAE6}
+.pp-cook-check{flex:0 0 auto; width:20px; height:20px; border:2px solid #CBD5C0; border-radius:6px; background:#fff; display:grid; place-items:center; color:#fff; padding:0}
+.pp-cook-check:hover{border-color:var(--sprout)}
+.pp-cook-item.cooked{background:#F1F7EC; border-color:#D6E5C8}
+.pp-cook-item.cooked .pp-cook-check{background:var(--green-mid); border-color:var(--green-mid)}
+.pp-cook-item.cooked .pp-cook-name{color:var(--soft)}
+.pp-cook-progress{font-family:var(--fm); font-size:10px; font-weight:600; color:var(--green); background:#E6F0DD; border-radius:6px; padding:1px 7px; margin-left:6px; letter-spacing:0; text-transform:none}
 
 /* planner: leftover styling */
 .pp-slot-tags{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
@@ -926,6 +965,54 @@ body::before{
 @media (max-width:560px){
   .pp-cook{grid-template-columns:1fr}
 }
+
+/* ── Today ──────────────────────────────────────────────────────────────── */
+.pp-today{animation:pp-rise .5s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-today-head{margin-bottom:16px}
+.pp-today-head .pp-plan-title{font-size:22px}
+.pp-today-head .pp-fine{margin-top:2px; font-size:13px}
+.pp-today-meals{display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:14px; margin-bottom:22px}
+.pp-today-card{text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px 17px; display:flex; flex-direction:column; gap:9px; cursor:pointer; transition:transform .2s cubic-bezier(.2,.7,.2,1), box-shadow .2s, border-color .2s}
+.pp-today-card:hover{transform:translateY(-3px); box-shadow:0 16px 32px -20px rgba(22,36,27,.5); border-color:var(--sprout)}
+.pp-today-cardtop{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.pp-today-tag{font-family:var(--fm); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:6px}
+.pp-today-tag.fresh{background:#E6F0DD; color:var(--green)}
+.pp-today-tag.left{background:var(--amber-soft); color:#8a5d12}
+.pp-today-tag.again{background:#EDE4F1; color:#6a4878}
+.pp-today-tag.ready{background:var(--green-mid); color:#fff}
+.pp-today-name{font-size:18px; font-weight:800; color:var(--ink); line-height:1.15}
+.pp-today-view{font-size:13px; font-weight:600; color:var(--green-mid); margin-top:1px}
+.pp-today-card:hover .pp-today-view{color:var(--green)}
+.pp-today-prep{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:15px 18px 17px}
+.pp-today-ing{list-style:none; margin:10px 0 0; padding:0; columns:2; column-gap:26px}
+.pp-today-ing li{font-size:14px; padding:4px 0 4px 16px; position:relative; break-inside:avoid; border-bottom:1px solid var(--line)}
+.pp-today-ing li:before{content:''; position:absolute; left:2px; top:11px; width:6px; height:6px; border-radius:50%; background:var(--sprout)}
+.pp-today-rest{font-size:14px; color:var(--green-mid); margin:8px 0 0}
+@media (max-width:560px){ .pp-today-ing{columns:1} }
+
+/* prep-day module (appears on Today on the chosen prep day) */
+.pp-prep{background:linear-gradient(180deg,#EAF3E2,#F1F7EC); border:1px solid #CFE3BE; border-radius:16px; padding:4px 8px 8px; margin-bottom:22px; animation:pp-rise .5s cubic-bezier(.2,.7,.2,1) backwards}
+.pp-prep-head{width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; background:none; border:none; padding:11px 8px; font-family:var(--fd); font-weight:700; font-size:15px; color:var(--green); text-align:left}
+.pp-prep-title{display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap}
+.pp-prep-count{font-family:var(--fm); font-size:11px; font-weight:600; color:#fff; background:var(--green-mid); border-radius:9px; padding:1px 8px}
+.pp-prep-head svg{transition:transform .2s; flex:0 0 auto}
+.pp-prep-head .rot{transform:rotate(180deg)}
+.pp-prep-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(228px,1fr)); gap:8px; padding:2px 6px 6px}
+.pp-prep-item{display:flex; align-items:center; gap:10px; text-align:left; background:#fff; border:1px solid #D6E5C8; border-radius:11px; padding:9px 12px; cursor:pointer; transition:border-color .15s, background .15s}
+.pp-prep-item:hover{border-color:var(--sprout)}
+.pp-prep-item.cooked{background:#F1F7EC}
+.pp-prep-item.cooked .pp-cook-check{background:var(--green-mid); border-color:var(--green-mid)}
+.pp-prep-item.cooked .pp-prep-name{color:var(--soft); text-decoration:line-through}
+.pp-prep-text{display:flex; flex-direction:column; gap:1px; min-width:0; flex:1}
+.pp-prep-name{font-size:13.5px; font-weight:600; color:var(--ink); line-height:1.2}
+.pp-prep-meta{font-family:var(--fm); font-size:10.5px; color:var(--green-mid)}
+
+/* prep-day picker (Weekly Plan header) */
+.pp-plan-actions{display:flex; flex-direction:column; align-items:flex-end; gap:8px}
+.pp-prepday{display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--soft)}
+.pp-prepday select{font-family:var(--fb); font-size:13px; font-weight:600; color:var(--green); background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:6px 9px; cursor:pointer}
+.pp-prepday select:hover{border-color:var(--sprout)}
+@media (prefers-reduced-motion:reduce){ .pp-prep{animation:none} .pp-prep-head svg{transition:none} }
 
 /* ── Shopping list ──────────────────────────────────────────────────────── */
 .pp-shop{animation:pp-rise .5s cubic-bezier(.2,.7,.2,1) backwards}

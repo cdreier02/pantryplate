@@ -4,18 +4,18 @@ import {
   useSensor, useSensors, useDraggable, useDroppable,
 } from "@dnd-kit/core";
 import {
-  Shuffle, Clock, Search, X, GripVertical, Minus, Plus, Soup, Replace, Trash2,
+  Shuffle, Clock, Search, X, GripVertical, Minus, Plus, Soup, Replace, Trash2, Check,
 } from "lucide-react";
 import {
-  poolForKind, cookingThisWeek, leftoverFlags, isBatchy, planHasDish, isKindFull,
-  addRandomDish, removeTopDish, removeDishById, replaceDishById, swapGridSlots, shufflePlan,
+  poolForKind, cookingThisWeek, leftoverFlags, isBatchy, isKindFull,
+  addRandomDish, removeTopDish, removeDishById, replaceDishById, swapGridSlots,
 } from "./weekPlan.js";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const SLOT_LABEL = { dinner: "Dinner", flex: "Anytime" };
 const leftoverLabel = (meal) => (isBatchy(meal) ? "Leftovers" : "Again");
 
-export default function Planner({ allMeals, plan, onChange, onViewRecipe }) {
+export default function Planner({ allMeals, plan, cooked = {}, onToggleCooked, prepDay = 6, onChangePrepDay, onShuffle, onChange, onViewRecipe }) {
   const byId = useMemo(() => {
     const m = new Map();
     for (const meal of allMeals) m.set(meal.id, meal);
@@ -57,18 +57,28 @@ export default function Planner({ allMeals, plan, onChange, onViewRecipe }) {
           <h2 className="pp-plan-title">Your week</h2>
           <p className="pp-fine">A few batch-cooked dishes spread across the week as leftovers. Edit the dishes below; drag cards in the grid to swap days.</p>
         </div>
-        <button className="pp-shuffle" onClick={() => onChange(shufflePlan(allMeals, plan))}>
-          <Shuffle size={15} strokeWidth={2.3} /> Shuffle week
-        </button>
+        <div className="pp-plan-actions">
+          <button className="pp-shuffle" onClick={onShuffle}>
+            <Shuffle size={15} strokeWidth={2.3} /> Shuffle week
+          </button>
+          <label className="pp-prepday">
+            <span>Prep day</span>
+            <select value={prepDay} onChange={(e) => onChangePrepDay(Number(e.target.value))}>
+              {DAY_NAMES.map((n, i) => <option key={i} value={i}>{n}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="pp-cook">
         <DishList title="Dinners" kind="dinner" items={cooking.dinners} plan={plan}
+          cooked={cooked} onToggleCooked={onToggleCooked}
           onAdd={() => onChange(addRandomDish(plan, allMeals, "dinner"))}
           onRemoveTop={() => onChange(removeTopDish(plan, "dinner"))}
           onRemove={(id) => onChange(removeDishById(plan, id))}
           onReplace={(id) => setPicker({ kind: "dinner", oldId: id })} />
         <DishList title="Breakfasts & snacks" kind="flex" items={cooking.flex} plan={plan}
+          cooked={cooked} onToggleCooked={onToggleCooked}
           onAdd={() => onChange(addRandomDish(plan, allMeals, "flex"))}
           onRemoveTop={() => onChange(removeTopDish(plan, "flex"))}
           onRemove={(id) => onChange(removeDishById(plan, id))}
@@ -112,12 +122,16 @@ export default function Planner({ allMeals, plan, onChange, onViewRecipe }) {
   );
 }
 
-function DishList({ title, kind, items, plan, onAdd, onRemoveTop, onRemove, onReplace }) {
+function DishList({ title, kind, items, plan, cooked = {}, onToggleCooked, onAdd, onRemoveTop, onRemove, onReplace }) {
   const count = (kind === "dinner" ? plan.dinners : plan.flex).length;
+  const cookedCount = items.filter((it) => cooked[it.id]).length;
   return (
     <div className="pp-cook-col">
       <div className="pp-cook-head">
-        <h4 className="pp-cook-title"><Soup size={13} strokeWidth={2.2} /> {title}</h4>
+        <h4 className="pp-cook-title">
+          <Soup size={13} strokeWidth={2.2} /> {title}
+          {cookedCount > 0 && <span className="pp-cook-progress">{cookedCount}/{count} cooked</span>}
+        </h4>
         <div className="pp-stepper-ctl">
           <button onClick={onRemoveTop} disabled={count <= 1} aria-label={`Remove a ${title} dish`}><Minus size={14} strokeWidth={2.6} /></button>
           <span className="pp-stepper-val">{count}</span>
@@ -125,25 +139,34 @@ function DishList({ title, kind, items, plan, onAdd, onRemoveTop, onRemove, onRe
         </div>
       </div>
       <div className="pp-cook-list">
-        {items.map((it) => (
-          <div key={it.id} className="pp-cook-item" role="button" tabIndex={0}
-            onClick={() => onReplace(it.id)}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onReplace(it.id))}
-            title="Tap to swap for a different meal">
-            <span className="pp-cook-text">
-              <span className="pp-cook-name">{it.meal.name}</span>
-              <span className="pp-cook-meta">
-                covers {it.days} {it.days === 1 ? "day" : "days"}{it.batches > 1 ? ` · cook ×${it.batches}` : ""}
+        {items.map((it) => {
+          const isCooked = !!cooked[it.id];
+          return (
+            <div key={it.id} className={"pp-cook-item" + (isCooked ? " cooked" : "")} role="button" tabIndex={0}
+              onClick={() => onReplace(it.id)}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onReplace(it.id))}
+              title="Tap to swap for a different meal">
+              <button className="pp-cook-check" aria-pressed={isCooked}
+                aria-label={isCooked ? `Mark ${it.meal.name} not cooked` : `Mark ${it.meal.name} cooked`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onToggleCooked && onToggleCooked(it.id); }}>
+                {isCooked && <Check size={12} strokeWidth={3} />}
+              </button>
+              <span className="pp-cook-text">
+                <span className="pp-cook-name">{it.meal.name}</span>
+                <span className="pp-cook-meta">
+                  covers {it.days} {it.days === 1 ? "day" : "days"}{it.batches > 1 ? ` · cook ×${it.batches}` : ""}
+                </span>
               </span>
-            </span>
-            <Replace className="pp-cook-swap" size={15} aria-hidden="true" />
-            <button className="pp-cook-remove" aria-label={`Remove ${it.meal.name}`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onRemove(it.id); }}>
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
+              <Replace className="pp-cook-swap" size={15} aria-hidden="true" />
+              <button className="pp-cook-remove" aria-label={`Remove ${it.meal.name}`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onRemove(it.id); }}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          );
+        })}
         {!items.length && <p className="pp-fine" style={{ padding: "4px 2px" }}>None yet — add one with +.</p>}
       </div>
     </div>
