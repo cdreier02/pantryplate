@@ -1,9 +1,14 @@
 /* Week-plan helpers.
 
-   A plan is 7 days, each with a `dinner` and a `flex` meal id (the flex slot holds
-   a Breakfast, Lunch, or Snack). The planner now picks a SMALL set of distinct,
-   batch-friendly dishes (default 3 dinners + 4 flex) and spreads each across
-   several days as leftovers — so the week is built from ~6–7 recipes, not 14. */
+   The plan is a SET of chosen dishes (the source of truth) plus a derived 7-day
+   grid arrangement:
+
+     { dinners: [id…], flex: [id…], grid: [{ dinner, flex } × 7] }
+
+   - dinners / flex: ordered, distinct dish ids (≤ 7 each). What you're cooking.
+     Drives the shopping list. The `+` stepper / Browse-add prepend to the top.
+   - grid: how those dishes spread across the week as leftovers. Re-derived
+     whenever the dish set changes; drag-to-swap mutates only the grid. */
 
 import { SERVINGS } from "./seedMeals.js";
 
@@ -13,7 +18,7 @@ export const DAYS = [
 
 export const FLEX_TYPES = ["Breakfast", "Lunch", "Snack"];
 export const SLOT_KINDS = ["dinner", "flex"];
-
+export const MAX_PER_KIND = DAYS.length; // 7
 export const DEFAULT_CONFIG = { nDinners: 3, nFlex: 4 };
 
 const BATCH_TAGS = new Set([
@@ -32,9 +37,8 @@ export function mealServings(meal) {
   return meal.type === "Dinner" ? 4 : 2;
 }
 
-function clamp(n, lo, hi) {
-  return Math.max(lo, Math.min(hi, n));
-}
+const weight = (m) => mealServings(m) + (isBatchy(m) ? 2 : 0);
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
 export function dinnerPool(meals) {
   return meals.filter((m) => m.type === "Dinner");
@@ -45,9 +49,12 @@ export function flexPool(meals) {
 export function poolForKind(meals, kind) {
   return kind === "dinner" ? dinnerPool(meals) : flexPool(meals);
 }
+export function kindForMeal(meal) {
+  return meal && meal.type === "Dinner" ? "dinner" : "flex";
+}
 
 // Weighted sampling without replacement, biased toward batch-friendly, higher-
-// yield dishes (so fewer batches cover the week) while keeping shuffle variety.
+// yield dishes while keeping shuffle variety.
 function weightedSample(pool, n, weightFn) {
   const items = pool.map((x) => ({ x, w: Math.max(0.01, weightFn(x)) }));
   const out = [];
@@ -64,7 +71,7 @@ function weightedSample(pool, n, weightFn) {
   return out;
 }
 
-// Spread picks across `days` as even, contiguous blocks (leftovers run together).
+// Spread ids across `days` as even, contiguous blocks (leftovers run together).
 function spread(ids, days) {
   const k = ids.length;
   if (k === 0) return Array(days).fill(null);
@@ -78,34 +85,147 @@ function spread(ids, days) {
   return seq.slice(0, days);
 }
 
-export function buildWeek(meals, config = DEFAULT_CONFIG) {
-  const days = DAYS.length;
-  const nD = clamp(config.nDinners ?? 3, 1, days);
-  const nF = clamp(config.nFlex ?? 4, 1, days);
-  const weight = (m) => mealServings(m) + (isBatchy(m) ? 2 : 0);
+export function spreadGrid(dinners, flex) {
+  const d = spread(dinners, DAYS.length);
+  const f = spread(flex, DAYS.length);
+  return DAYS.map((_, i) => ({ dinner: d[i] || null, flex: f[i] || null }));
+}
 
-  const dPicks = weightedSample(dinnerPool(meals), nD, weight).map((m) => m.id);
-  const fPicks = weightedSample(flexPool(meals), nF, weight).map((m) => m.id);
-  const dSeq = spread(dPicks, days);
-  const fSeq = spread(fPicks, days);
+const listFor = (plan, kind) => (kind === "dinner" ? plan.dinners : plan.flex);
 
-  return DAYS.map((_, i) => ({ dinner: dSeq[i] || null, flex: fSeq[i] || null }));
+// Return a new plan with one category's dish list replaced; grid re-derived.
+function withList(plan, kind, newList) {
+  const dinners = kind === "dinner" ? newList : plan.dinners;
+  const flex = kind === "flex" ? newList : plan.flex;
+  return { dinners, flex, grid: spreadGrid(dinners, flex) };
+}
+
+export function emptyPlan() {
+  return { dinners: [], flex: [], grid: spreadGrid([], []) };
+}
+
+export function buildPlan(meals, config = DEFAULT_CONFIG) {
+  const nD = clamp(config.nDinners ?? 3, 1, MAX_PER_KIND);
+  const nF = clamp(config.nFlex ?? 4, 1, MAX_PER_KIND);
+  const dinners = weightedSample(dinnerPool(meals), nD, weight).map((m) => m.id);
+  const flex = weightedSample(flexPool(meals), nF, weight).map((m) => m.id);
+  return { dinners, flex, grid: spreadGrid(dinners, flex) };
+}
+
+// --- dish-set mutations (each returns a new plan; grid re-derived) ---
+
+export function addRandomDish(plan, meals, kind) {
+  const list = listFor(plan, kind);
+  if (list.length >= MAX_PER_KIND) return plan;
+  const pool = poolForKind(meals, kind).filter((m) => !list.includes(m.id));
+  if (!pool.length) return plan;
+  const pick = weightedSample(pool, 1, weight)[0];
+  return withList(plan, kind, [pick.id, ...list]);
+}
+
+export function removeTopDish(plan, kind) {
+  const list = listFor(plan, kind);
+  if (!list.length) return plan;
+  return withList(plan, kind, list.slice(1));
+}
+
+export function addDishById(plan, meals, id) {
+  const meal = meals.find((m) => m.id === id);
+  if (!meal) return plan;
+  const kind = kindForMeal(meal);
+  const list = listFor(plan, kind);
+  if (list.includes(id) || list.length >= MAX_PER_KIND) return plan;
+  return withList(plan, kind, [id, ...list]);
+}
+
+export function removeDishById(plan, id) {
+  for (const kind of SLOT_KINDS) {
+    const list = listFor(plan, kind);
+    if (list.includes(id)) return withList(plan, kind, list.filter((x) => x !== id));
+  }
+  return plan;
+}
+
+export function replaceDishById(plan, oldId, newId) {
+  for (const kind of SLOT_KINDS) {
+    const list = listFor(plan, kind);
+    const idx = list.indexOf(oldId);
+    if (idx >= 0) {
+      let next;
+      if (list.includes(newId)) next = list.filter((x) => x !== oldId); // dedupe
+      else { next = [...list]; next[idx] = newId; }
+      return withList(plan, kind, next);
+    }
+  }
+  return plan;
+}
+
+// Drag-swap: swap which dish sits on two days (same kind). Lists unchanged.
+export function swapGridSlots(plan, dayA, dayB, kind) {
+  const grid = plan.grid.map((d) => ({ ...d }));
+  const tmp = grid[dayA][kind];
+  grid[dayA][kind] = grid[dayB][kind];
+  grid[dayB][kind] = tmp;
+  return { ...plan, grid };
+}
+
+export function shufflePlan(meals, plan) {
+  const nD = plan?.dinners?.length || DEFAULT_CONFIG.nDinners;
+  const nF = plan?.flex?.length || DEFAULT_CONFIG.nFlex;
+  return buildPlan(meals, { nDinners: nD, nFlex: nF });
+}
+
+export function planHasDish(plan, id) {
+  return !!plan && (plan.dinners?.includes(id) || plan.flex?.includes(id));
+}
+export function isKindFull(plan, kind) {
+  return !!plan && listFor(plan, kind).length >= MAX_PER_KIND;
 }
 
 export function isValidPlan(plan) {
   return (
-    Array.isArray(plan) &&
-    plan.length === DAYS.length &&
-    plan.every((d) => d && typeof d === "object" && "dinner" in d && "flex" in d)
+    !!plan &&
+    Array.isArray(plan.dinners) &&
+    Array.isArray(plan.flex) &&
+    Array.isArray(plan.grid) &&
+    plan.grid.length === DAYS.length
   );
 }
 
-// Which day-slots repeat an earlier day's meal (i.e. are leftovers).
-export function leftoverFlags(plan) {
-  const flags = plan.map(() => ({ dinner: false, flex: false }));
+// Convert the old per-day grid shape [{dinner,flex}×7] into the new model.
+export function migratePlan(old) {
+  if (!old) return null;
+  if (isValidPlan(old)) return old;
+  if (Array.isArray(old) && old.length === DAYS.length) {
+    const dinners = [], flex = [], sd = new Set(), sf = new Set();
+    for (const d of old) {
+      if (d?.dinner && !sd.has(d.dinner)) { sd.add(d.dinner); dinners.push(d.dinner); }
+      if (d?.flex && !sf.has(d.flex)) { sf.add(d.flex); flex.push(d.flex); }
+    }
+    return { dinners, flex, grid: old.map((d) => ({ dinner: d?.dinner || null, flex: d?.flex || null })) };
+  }
+  return null;
+}
+
+// --- derived data for views ---
+
+function gridCounts(grid) {
+  const c = { dinner: new Map(), flex: new Map() };
+  for (const d of grid) {
+    for (const k of SLOT_KINDS) {
+      const id = d[k];
+      if (id) c[k].set(id, (c[k].get(id) || 0) + 1);
+    }
+  }
+  return c;
+}
+
+// Which grid day-slots repeat an earlier day's meal (i.e. are leftovers).
+export function leftoverFlags(grid) {
+  const flags = grid.map(() => ({ dinner: false, flex: false }));
   for (const kind of SLOT_KINDS) {
     const seen = new Set();
-    plan.forEach((d, i) => {
+    grid.forEach((d, i) => {
       const id = d[kind];
       if (!id) return;
       if (seen.has(id)) flags[i][kind] = true;
@@ -115,40 +235,31 @@ export function leftoverFlags(plan) {
   return flags;
 }
 
-// Distinct dishes per slot kind, in first-appearance order, with coverage info.
+// The editable dish list per kind, in list order, with coverage info.
 export function cookingThisWeek(plan, byId) {
-  const summarize = (kind) => {
-    const order = [];
-    const seen = new Set();
-    plan.forEach((d) => {
-      const id = d[kind];
-      if (id && !seen.has(id)) { seen.add(id); order.push(id); }
-    });
-    return order.map((id) => {
-      const meal = byId.get(id);
-      const days = plan.filter((d) => d[kind] === id).length;
-      const servings = mealServings(meal);
-      const batches = Math.max(1, Math.ceil(days / servings));
-      return { id, meal, days, servings, batches };
-    }).filter((x) => x.meal);
-  };
-  return { dinners: summarize("dinner"), flex: summarize("flex") };
+  const counts = gridCounts(plan.grid);
+  const mk = (kind) => listFor(plan, kind).map((id) => {
+    const meal = byId.get(id);
+    const days = counts[kind].get(id) || 0;
+    const servings = mealServings(meal);
+    const batches = Math.max(1, Math.ceil((days || 1) / servings));
+    return { id, meal, days, servings, batches, kind };
+  }).filter((x) => x.meal);
+  return { dinners: mk("dinner"), flex: mk("flex") };
 }
 
-// Distinct recipes across the whole plan with how many batches to cook (for shopping).
+// Distinct recipes across the plan with how many batches to cook (for shopping).
 export function planBatches(plan, byId) {
-  const count = new Map();
-  for (const d of plan) {
-    for (const kind of SLOT_KINDS) {
-      const id = d[kind];
-      if (id) count.set(id, (count.get(id) || 0) + 1);
-    }
-  }
+  if (!isValidPlan(plan)) return [];
+  const counts = gridCounts(plan.grid);
   const out = [];
-  for (const [id, days] of count) {
-    const meal = byId.get(id);
-    if (!meal) continue;
-    out.push({ meal, batches: Math.max(1, Math.ceil(days / mealServings(meal))) });
+  for (const kind of SLOT_KINDS) {
+    for (const id of listFor(plan, kind)) {
+      const meal = byId.get(id);
+      if (!meal) continue;
+      const days = counts[kind].get(id) || 1;
+      out.push({ meal, batches: Math.max(1, Math.ceil(days / mealServings(meal))) });
+    }
   }
   return out;
 }

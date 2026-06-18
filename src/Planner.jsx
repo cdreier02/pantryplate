@@ -4,16 +4,18 @@ import {
   useSensor, useSensors, useDraggable, useDroppable,
 } from "@dnd-kit/core";
 import {
-  Shuffle, Clock, Search, X, GripVertical, BookOpen, Minus, Plus, Soup,
+  Shuffle, Clock, Search, X, GripVertical, Minus, Plus, Soup, Replace, Trash2,
 } from "lucide-react";
 import {
-  poolForKind, cookingThisWeek, leftoverFlags, isBatchy,
+  poolForKind, cookingThisWeek, leftoverFlags, isBatchy, planHasDish, isKindFull,
+  addRandomDish, removeTopDish, removeDishById, replaceDishById, swapGridSlots, shufflePlan,
 } from "./weekPlan.js";
 
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const SLOT_LABEL = { dinner: "Dinner", flex: "Anytime" };
 const leftoverLabel = (meal) => (isBatchy(meal) ? "Leftovers" : "Again");
 
-export default function Planner({ allMeals, plan, config, onChange, onShuffle, onCountChange, onViewRecipe }) {
+export default function Planner({ allMeals, plan, onChange, onViewRecipe }) {
   const byId = useMemo(() => {
     const m = new Map();
     for (const meal of allMeals) m.set(meal.id, meal);
@@ -21,7 +23,7 @@ export default function Planner({ allMeals, plan, config, onChange, onShuffle, o
   }, [allMeals]);
 
   const [activeId, setActiveId] = useState(null);
-  const [picker, setPicker] = useState(null); // { dayIndex, kind } | null
+  const [picker, setPicker] = useState(null); // { kind, oldId } | null
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -40,53 +42,37 @@ export default function Planner({ allMeals, plan, config, onChange, onShuffle, o
     const a = parse(active.id);
     const b = parse(over.id);
     if (a.kind !== b.kind) return; // only swap like-for-like slots
-    const next = plan.map((d) => ({ ...d }));
-    const tmp = next[a.dayIndex][a.kind];
-    next[a.dayIndex][a.kind] = next[b.dayIndex][b.kind];
-    next[b.dayIndex][b.kind] = tmp;
-    onChange(next);
+    onChange(swapGridSlots(plan, a.dayIndex, b.dayIndex, a.kind));
   }, [plan, onChange]);
 
-  const openPicker = useCallback((dayIndex, kind) => setPicker({ dayIndex, kind }), []);
+  const cooking = useMemo(() => cookingThisWeek(plan, byId), [plan, byId]);
+  const leftovers = useMemo(() => leftoverFlags(plan.grid), [plan.grid]);
 
-  const replaceSlot = (dayIndex, kind, mealId) => {
-    const next = plan.map((d) => ({ ...d }));
-    next[dayIndex][kind] = mealId;
-    onChange(next);
-    setPicker(null);
-  };
-
-  const cooking = useMemo(() => (plan ? cookingThisWeek(plan, byId) : { dinners: [], flex: [] }), [plan, byId]);
-  const leftovers = useMemo(() => (plan ? leftoverFlags(plan) : []), [plan]);
-
-  if (!plan) return null;
-
-  const activeMealResolved = activeId
-    ? byId.get(plan[parse(activeId).dayIndex]?.[parse(activeId).kind])
-    : null;
+  const activeMeal = activeId ? byId.get(plan.grid[parse(activeId).dayIndex]?.[parse(activeId).kind]) : null;
 
   return (
     <div className="pp-plan">
       <div className="pp-plan-head">
         <div>
           <h2 className="pp-plan-title">Your week</h2>
-          <p className="pp-fine">A few batch-cooked dishes spread across the week as leftovers. Drag a card onto another day to swap; tap to pick a different meal.</p>
+          <p className="pp-fine">A few batch-cooked dishes spread across the week as leftovers. Edit the dishes below; drag cards in the grid to swap days.</p>
         </div>
-        <button className="pp-shuffle" onClick={onShuffle}>
+        <button className="pp-shuffle" onClick={() => onChange(shufflePlan(allMeals, plan))}>
           <Shuffle size={15} strokeWidth={2.3} /> Shuffle week
         </button>
       </div>
 
-      <div className="pp-steppers">
-        <Stepper label="Dinners" value={config.nDinners}
-          onDec={() => onCountChange("dinner", -1)} onInc={() => onCountChange("dinner", 1)} />
-        <Stepper label="Breakfasts & snacks" value={config.nFlex}
-          onDec={() => onCountChange("flex", -1)} onInc={() => onCountChange("flex", 1)} />
-      </div>
-
       <div className="pp-cook">
-        <CookColumn title="Cooking — dinners" items={cooking.dinners} onView={onViewRecipe} />
-        <CookColumn title="Cooking — breakfasts & snacks" items={cooking.flex} onView={onViewRecipe} />
+        <DishList title="Dinners" kind="dinner" items={cooking.dinners} plan={plan}
+          onAdd={() => onChange(addRandomDish(plan, allMeals, "dinner"))}
+          onRemoveTop={() => onChange(removeTopDish(plan, "dinner"))}
+          onRemove={(id) => onChange(removeDishById(plan, id))}
+          onReplace={(id) => setPicker({ kind: "dinner", oldId: id })} />
+        <DishList title="Breakfasts & snacks" kind="flex" items={cooking.flex} plan={plan}
+          onAdd={() => onChange(addRandomDish(plan, allMeals, "flex"))}
+          onRemoveTop={() => onChange(removeTopDish(plan, "flex"))}
+          onRemove={(id) => onChange(removeDishById(plan, id))}
+          onReplace={(id) => setPicker({ kind: "flex", oldId: id })} />
       </div>
 
       <DndContext
@@ -96,76 +82,89 @@ export default function Planner({ allMeals, plan, config, onChange, onShuffle, o
         onDragEnd={onDragEnd}
       >
         <div className="pp-week">
-          {plan.map((day, i) => (
+          {plan.grid.map((day, i) => (
             <div className="pp-day" key={i}>
               <div className="pp-dayname">{DAY_NAMES[i]}</div>
               <SlotCard dayIndex={i} kind="dinner" meal={byId.get(day.dinner)}
-                leftover={leftovers[i]?.dinner} onPick={openPicker} onView={onViewRecipe} />
+                leftover={leftovers[i]?.dinner} onView={onViewRecipe} />
               <SlotCard dayIndex={i} kind="flex" meal={byId.get(day.flex)}
-                leftover={leftovers[i]?.flex} onPick={openPicker} onView={onViewRecipe} />
+                leftover={leftovers[i]?.flex} onView={onViewRecipe} />
             </div>
           ))}
         </div>
 
         <DragOverlay dropAnimation={null}>
-          {activeMealResolved ? <CardFace meal={activeMealResolved} dragging /> : null}
+          {activeMeal ? <CardFace meal={activeMeal} dragging /> : null}
         </DragOverlay>
       </DndContext>
 
       {picker && (
         <PickerModal
           meals={poolForKind(allMeals, picker.kind)}
-          current={plan[picker.dayIndex]?.[picker.kind]}
+          excludeIds={(picker.kind === "dinner" ? plan.dinners : plan.flex).filter((x) => x !== picker.oldId)}
+          current={picker.oldId}
           kindLabel={picker.kind === "dinner" ? "dinner" : "breakfast, lunch or snack"}
           onClose={() => setPicker(null)}
-          onPick={(id) => replaceSlot(picker.dayIndex, picker.kind, id)}
+          onPick={(id) => { onChange(replaceDishById(plan, picker.oldId, id)); setPicker(null); }}
         />
       )}
     </div>
   );
 }
 
-const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-function Stepper({ label, value, onDec, onInc }) {
-  return (
-    <div className="pp-stepper">
-      <span className="pp-stepper-label">{label}</span>
-      <div className="pp-stepper-ctl">
-        <button onClick={onDec} disabled={value <= 1} aria-label={`Fewer ${label}`}><Minus size={14} strokeWidth={2.6} /></button>
-        <span className="pp-stepper-val">{value}</span>
-        <button onClick={onInc} disabled={value >= 7} aria-label={`More ${label}`}><Plus size={14} strokeWidth={2.6} /></button>
-      </div>
-    </div>
-  );
-}
-
-function CookColumn({ title, items, onView }) {
-  if (!items.length) return null;
+function DishList({ title, kind, items, plan, onAdd, onRemoveTop, onRemove, onReplace }) {
+  const count = (kind === "dinner" ? plan.dinners : plan.flex).length;
   return (
     <div className="pp-cook-col">
-      <h4 className="pp-cook-title"><Soup size={13} strokeWidth={2.2} /> {title}</h4>
+      <div className="pp-cook-head">
+        <h4 className="pp-cook-title"><Soup size={13} strokeWidth={2.2} /> {title}</h4>
+        <div className="pp-stepper-ctl">
+          <button onClick={onRemoveTop} disabled={count <= 1} aria-label={`Remove a ${title} dish`}><Minus size={14} strokeWidth={2.6} /></button>
+          <span className="pp-stepper-val">{count}</span>
+          <button onClick={onAdd} disabled={isKindFull(plan, kind)} aria-label={`Add a random ${title} dish`}><Plus size={14} strokeWidth={2.6} /></button>
+        </div>
+      </div>
       <div className="pp-cook-list">
         {items.map((it) => (
-          <button key={it.id} className="pp-cook-item" onClick={() => onView(it.meal)} title="View recipe">
-            <span className="pp-cook-name">{it.meal.name}</span>
-            <span className="pp-cook-meta">
-              covers {it.days} {it.days === 1 ? "day" : "days"}
-              {it.batches > 1 ? ` · cook ×${it.batches}` : ""}
+          <div key={it.id} className="pp-cook-item" role="button" tabIndex={0}
+            onClick={() => onReplace(it.id)}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onReplace(it.id))}
+            title="Tap to swap for a different meal">
+            <span className="pp-cook-text">
+              <span className="pp-cook-name">{it.meal.name}</span>
+              <span className="pp-cook-meta">
+                covers {it.days} {it.days === 1 ? "day" : "days"}{it.batches > 1 ? ` · cook ×${it.batches}` : ""}
+              </span>
             </span>
-          </button>
+            <Replace className="pp-cook-swap" size={15} aria-hidden="true" />
+            <button className="pp-cook-remove" aria-label={`Remove ${it.meal.name}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onRemove(it.id); }}>
+              <Trash2 size={14} />
+            </button>
+          </div>
         ))}
+        {!items.length && <p className="pp-fine" style={{ padding: "4px 2px" }}>None yet — add one with +.</p>}
       </div>
     </div>
   );
 }
 
-function SlotCard({ dayIndex, kind, meal, leftover, onPick, onView }) {
+function SlotCard({ dayIndex, kind, meal, leftover, onView }) {
   const id = `${dayIndex}-${kind}`;
   const data = { dayIndex, kind };
   const drag = useDraggable({ id, data, disabled: !meal });
   const drop = useDroppable({ id, data });
   const setRef = (node) => { drag.setNodeRef(node); drop.setNodeRef(node); };
+
+  if (!meal) {
+    return (
+      <div ref={drop.setNodeRef} className={"pp-slot empty" + (drop.isOver ? " over" : "")}>
+        <span className="pp-slot-kind">{SLOT_LABEL[kind]}</span>
+        <span className="pp-slot-empty">—</span>
+      </div>
+    );
+  }
 
   const cls =
     "pp-slot" +
@@ -174,30 +173,12 @@ function SlotCard({ dayIndex, kind, meal, leftover, onPick, onView }) {
     (drag.isDragging ? " dragging" : "") +
     (drop.isOver ? " over" : "");
 
-  if (!meal) {
-    return (
-      <div ref={drop.setNodeRef}
-        className={"pp-slot empty" + (drop.isOver ? " over" : "")}
-        role="button" tabIndex={0}
-        onClick={() => onPick(dayIndex, kind)}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onPick(dayIndex, kind))}>
-        <span className="pp-slot-kind">{SLOT_LABEL[kind]}</span>
-        <span className="pp-slot-empty">+ Choose a meal</span>
-      </div>
-    );
-  }
-
   return (
     <div ref={setRef} {...drag.attributes} {...drag.listeners}
       className={cls} role="button" tabIndex={0}
-      aria-label={`${SLOT_LABEL[kind]}: ${meal.name}${leftover ? " (leftovers)" : ""}. Tap to change, drag to swap.`}
-      onClick={() => onPick(dayIndex, kind)}
-      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onPick(dayIndex, kind))}>
-      <button className="pp-slot-view" title="View recipe"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onView(meal); }}>
-        <BookOpen size={14} />
-      </button>
+      aria-label={`${SLOT_LABEL[kind]}: ${meal.name}${leftover ? " (leftovers)" : ""}. Tap for recipe, drag to swap days.`}
+      onClick={() => onView(meal)}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onView(meal))}>
       <CardFace meal={meal} leftover={leftover} />
     </div>
   );
@@ -221,14 +202,14 @@ function CardFace({ meal, leftover, dragging }) {
   );
 }
 
-function PickerModal({ meals, current, kindLabel, onClose, onPick }) {
+function PickerModal({ meals, excludeIds, current, kindLabel, onClose, onPick }) {
   const [q, setQ] = useState("");
+  const exclude = new Set(excludeIds || []);
   const shown = useMemo(() => {
     const query = q.trim().toLowerCase();
-    const list = query
-      ? meals.filter((m) =>
-          (m.name + " " + (m.tags || []).join(" ")).toLowerCase().includes(query))
-      : meals;
+    const list = meals.filter((m) => !exclude.has(m.id) && (
+      !query || (m.name + " " + (m.tags || []).join(" ")).toLowerCase().includes(query)
+    ));
     return [...list].sort((a, b) => a.name.localeCompare(b.name));
   }, [meals, q]);
 
@@ -236,8 +217,8 @@ function PickerModal({ meals, current, kindLabel, onClose, onPick }) {
     <div className="pp-overlay" onClick={onClose}>
       <div className="pp-modal pp-picker" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <button className="pp-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
-        <h2 className="pp-detailname">Pick a meal</h2>
-        <p className="pp-fine">Choose a {kindLabel} for this slot.</p>
+        <h2 className="pp-detailname">Swap meal</h2>
+        <p className="pp-fine">Choose a different {kindLabel} for this slot.</p>
         <div className="pp-searchwrap pp-picker-search">
           <Search size={16} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search meals" aria-label="Search meals" autoFocus />
@@ -245,9 +226,7 @@ function PickerModal({ meals, current, kindLabel, onClose, onPick }) {
         </div>
         <div className="pp-picker-list">
           {shown.map((m) => (
-            <button key={m.id}
-              className={"pp-picker-item" + (m.id === current ? " current" : "")}
-              onClick={() => onPick(m.id)}>
+            <button key={m.id} className={"pp-picker-item" + (m.id === current ? " current" : "")} onClick={() => onPick(m.id)}>
               <span className={"pp-type t-" + m.type.toLowerCase()}>{m.type}</span>
               <span className="pp-picker-name">{m.name}</span>
               <span className="pp-picker-stats">{m.cal} kcal · {m.fiber}g fiber · {m.time}m</span>

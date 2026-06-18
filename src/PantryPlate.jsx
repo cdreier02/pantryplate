@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Search, Star, Plus, X, Clock, Heart, Trash2, ChevronDown,
   Leaf, Sprout, RotateCcw, Check, CalendarDays, LayoutGrid, ShoppingBasket,
+  CalendarPlus, CalendarCheck,
 } from "lucide-react";
 import { SEED_MEALS, CORE_PANTRY } from "./seedMeals.js";
-import { buildWeek, isValidPlan, DEFAULT_CONFIG } from "./weekPlan.js";
+import {
+  buildPlan, isValidPlan, migratePlan, emptyPlan, DEFAULT_CONFIG,
+  addDishById, removeDishById, planHasDish, isKindFull, kindForMeal,
+} from "./weekPlan.js";
 import Planner from "./Planner.jsx";
 import Shopping from "./Shopping.jsx";
 
@@ -67,9 +71,9 @@ export default function PantryPlate() {
   const [custom, setCustom] = useState(() => loadKey("meals:custom", []));
   const [favorites, setFavorites] = useState(() => loadKey("meals:favorites", []));
   const [view, setView] = useState("browse");
-  const [plan, setPlan] = useState(() => loadKey("meals:plan", null));
-  const [planConfig, setPlanConfig] = useState(() => loadKey("meals:planConfig", null));
+  const [plan, setPlan] = useState(() => migratePlan(loadKey("meals:plan", null)));
   const [shopChecked, setShopChecked] = useState(() => loadKey("meals:shopping:checked", {}));
+  const [toast, setToast] = useState(null);
 
   const [query, setQuery] = useState("");
   const [type, setType] = useState("All");
@@ -117,10 +121,43 @@ export default function PantryPlate() {
     saveKey("meals:plan", next);
   }, []);
 
+  // Set of dish ids currently in the plan (for Browse "in your week" state).
+  const planDishIds = useMemo(() => {
+    const s = new Set();
+    if (isValidPlan(plan)) { plan.dinners.forEach((id) => s.add(id)); plan.flex.forEach((id) => s.add(id)); }
+    return s;
+  }, [plan]);
+  const dinnersFull = isValidPlan(plan) && plan.dinners.length >= 7;
+  const flexFull = isValidPlan(plan) && plan.flex.length >= 7;
+
+  const toastTimer = useRef(null);
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2400);
+  }, []);
+
+  const toggleInWeek = useCallback((meal) => {
+    const base = isValidPlan(plan) ? plan : emptyPlan();
+    if (planHasDish(base, meal.id)) {
+      updatePlan(removeDishById(base, meal.id));
+      showToast(`Removed ${meal.name} from your week`);
+      return;
+    }
+    if (isKindFull(base, kindForMeal(meal))) {
+      showToast(meal.type === "Dinner"
+        ? "Dinners are full (7) — remove one first"
+        : "Breakfasts & snacks are full (7) — remove one first");
+      return;
+    }
+    updatePlan(addDishById(base, allMeals, meal.id));
+    showToast(`Added ${meal.name} to your week`);
+  }, [plan, allMeals, updatePlan, showToast]);
+
   const toggleShop = useCallback((key) => {
     setShopChecked((prev) => {
       const next = { ...prev };
-      if (next[key]) delete next[key]; else next[key] = true;
+      if (next[key]) delete next[key]; else next[key] = Date.now(); // value = check order
       saveKey("meals:shopping:checked", next);
       return next;
     });
@@ -131,35 +168,25 @@ export default function PantryPlate() {
     saveKey("meals:shopping:checked", {});
   }, []);
 
-  const regeneratePlan = useCallback((cfg) => {
-    const fresh = buildWeek(allMeals, cfg);
-    setPlan(fresh);
-    saveKey("meals:plan", fresh);
-  }, [allMeals]);
+  // If a pre-existing plan was migrated from the old per-day shape, persist the
+  // migrated form once so storage matches the new model.
+  useEffect(() => {
+    if (isValidPlan(plan) && !isValidPlan(loadKey("meals:plan", null))) {
+      saveKey("meals:plan", plan);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const changeCount = useCallback((kind, delta) => {
-    const base = planConfig || DEFAULT_CONFIG;
-    const key = kind === "dinner" ? "nDinners" : "nFlex";
-    const next = { ...base, [key]: Math.max(1, Math.min(7, base[key] + delta)) };
-    if (next[key] === base[key]) return;
-    setPlanConfig(next);
-    saveKey("meals:planConfig", next);
-    regeneratePlan(next);
-  }, [planConfig, regeneratePlan]);
-
-  // Build a batch-cooked week the first time the planner/shopping is opened, or
-  // once on upgrade (no saved config) so the new leftover model takes effect.
+  // Build a starter week the first time the planner/shopping is opened (or if none).
   useEffect(() => {
     if ((view !== "plan" && view !== "shopping") || allMeals.length === 0) return;
-    const cfg = planConfig || DEFAULT_CONFIG;
     setPlan((prev) => {
-      if (isValidPlan(prev) && planConfig) return prev;
-      const fresh = buildWeek(allMeals, cfg);
+      if (isValidPlan(prev)) return prev;
+      const fresh = buildPlan(allMeals, DEFAULT_CONFIG);
       saveKey("meals:plan", fresh);
       return fresh;
     });
-    if (!planConfig) { setPlanConfig(cfg); saveKey("meals:planConfig", cfg); }
-  }, [view, allMeals, planConfig]);
+  }, [view, allMeals]);
 
   const toggleFav = useCallback((id) => {
     setFavorites((prev) => {
@@ -238,7 +265,7 @@ export default function PantryPlate() {
         <button role="tab" aria-selected={view === "plan"}
           className={"pp-viewtab" + (view === "plan" ? " on" : "")}
           onClick={() => setView("plan")}>
-          <CalendarDays size={15} strokeWidth={2.2} /> Plan week
+          <CalendarDays size={15} strokeWidth={2.2} /> Weekly Plan
         </button>
         <button role="tab" aria-selected={view === "shopping"}
           className={"pp-viewtab" + (view === "shopping" ? " on" : "")}
@@ -328,11 +355,26 @@ export default function PantryPlate() {
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setOpen(m))}>
               <div className="pp-cardtop">
                 <span className={"pp-type t-" + m.type.toLowerCase()}>{m.type}</span>
-                <button className={"pp-star" + (favorites.includes(m.id) ? " on" : "")}
-                  onClick={(e) => { e.stopPropagation(); toggleFav(m.id); }}
-                  aria-label={favorites.includes(m.id) ? "Remove favorite" : "Add favorite"}>
-                  <Star size={16} fill={favorites.includes(m.id) ? "currentColor" : "none"} strokeWidth={2} />
-                </button>
+                <div className="pp-cardbtns">
+                  {(() => {
+                    const inWeek = planDishIds.has(m.id);
+                    const full = m.type === "Dinner" ? dinnersFull : flexFull;
+                    return (
+                      <button className={"pp-addweek" + (inWeek ? " on" : "")}
+                        onClick={(e) => { e.stopPropagation(); toggleInWeek(m); }}
+                        disabled={!inWeek && full}
+                        aria-label={inWeek ? "In your week — remove" : "Add to week"}
+                        title={inWeek ? "In your week — tap to remove" : full ? "Week is full — remove one first" : "Add to week"}>
+                        {inWeek ? <CalendarCheck size={16} /> : <CalendarPlus size={16} />}
+                      </button>
+                    );
+                  })()}
+                  <button className={"pp-star" + (favorites.includes(m.id) ? " on" : "")}
+                    onClick={(e) => { e.stopPropagation(); toggleFav(m.id); }}
+                    aria-label={favorites.includes(m.id) ? "Remove favorite" : "Add favorite"}>
+                    <Star size={16} fill={favorites.includes(m.id) ? "currentColor" : "none"} strokeWidth={2} />
+                  </button>
+                </div>
               </div>
               <h3 className="pp-name">{m.name}</h3>
               <div className="pp-spec">
@@ -354,10 +396,8 @@ export default function PantryPlate() {
       <CollapsiblePantry open={pantryOpen} setOpen={setPantryOpen} />
       </>)}
 
-      {view === "plan" && (
-        <Planner allMeals={allMeals} plan={plan} config={planConfig || DEFAULT_CONFIG}
-          onChange={updatePlan} onShuffle={() => regeneratePlan(planConfig || DEFAULT_CONFIG)}
-          onCountChange={changeCount} onViewRecipe={setOpen} />
+      {view === "plan" && isValidPlan(plan) && (
+        <Planner allMeals={allMeals} plan={plan} onChange={updatePlan} onViewRecipe={setOpen} />
       )}
 
       {view === "shopping" && (
@@ -390,6 +430,18 @@ export default function PantryPlate() {
             <span><Clock size={12} /> {open.time} min</span>
           </div>
           <p className="pp-whyline"><Heart size={13} strokeWidth={2.2} /> {open.why}</p>
+          {(() => {
+            const inWeek = planDishIds.has(open.id);
+            const full = open.type === "Dinner" ? dinnersFull : flexFull;
+            return (
+              <button className={"pp-addweek-btn" + (inWeek ? " on" : "")}
+                onClick={() => toggleInWeek(open)} disabled={!inWeek && full}>
+                {inWeek
+                  ? <><CalendarCheck size={15} strokeWidth={2.2} /> In your week — tap to remove</>
+                  : <><CalendarPlus size={15} strokeWidth={2.2} /> {full ? "Week is full" : "Add to week"}</>}
+              </button>
+            );
+          })()}
           <div className="pp-cols">
             <div>
               <h4>Ingredients</h4>
@@ -417,6 +469,8 @@ export default function PantryPlate() {
       {!STORAGE_OK && (
         <p className="pp-fine center">Saving is unavailable here, so meals you add won't persist between sessions.</p>
       )}
+
+      {toast && <div className="pp-toast" role="status" aria-live="polite">{toast}</div>}
     </div>
   );
 }
@@ -769,6 +823,24 @@ body::before{
 .pp-viewtab:hover{color:var(--green-mid)}
 .pp-viewtab.on{background:var(--green); color:#fff}
 
+/* Browse: add-to-week toggle on cards */
+.pp-cardbtns{display:flex; align-items:center; gap:2px}
+.pp-addweek{background:none; border:none; color:#C7CFC0; display:grid; place-items:center; padding:2px; border-radius:7px}
+.pp-addweek:hover:not(:disabled){color:var(--green-mid)}
+.pp-addweek.on{color:var(--green)}
+.pp-addweek:disabled{opacity:.3; cursor:not-allowed}
+
+/* Recipe modal: add-to-week button */
+.pp-addweek-btn{display:inline-flex; align-items:center; gap:8px; background:var(--green); color:#fff; border:none; border-radius:10px; padding:10px 16px; font-weight:600; font-size:14px; margin:0 0 16px}
+.pp-addweek-btn:hover:not(:disabled){background:#173d27}
+.pp-addweek-btn.on{background:#E6F0DD; color:var(--green); border:1px solid var(--sprout)}
+.pp-addweek-btn:disabled{opacity:.5; cursor:not-allowed}
+
+/* Add/remove toast */
+.pp-toast{position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:120; background:#16241B; color:#EAF3E2; border:1px solid #2C4636; border-radius:12px; padding:11px 18px; font-size:13.5px; box-shadow:0 16px 40px -16px rgba(0,0,0,.55); max-width:calc(100vw - 32px); animation:pp-toast-in .25s ease both}
+@keyframes pp-toast-in{from{opacity:0; transform:translate(-50%,12px)} to{opacity:1; transform:translate(-50%,0)}}
+@media (prefers-reduced-motion:reduce){ .pp-toast{animation:none} }
+
 .pp-plan{animation:pp-rise .5s cubic-bezier(.2,.7,.2,1) backwards}
 .pp-plan-head{display:flex; justify-content:space-between; align-items:flex-end; gap:14px; margin-bottom:16px; flex-wrap:wrap}
 .pp-plan-title{font-size:20px; font-weight:800; color:var(--green)}
@@ -833,12 +905,18 @@ body::before{
 /* planner: "cooking this week" summary */
 .pp-cook{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px}
 .pp-cook-col{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:13px 14px}
-.pp-cook-title{display:flex; align-items:center; gap:6px; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--amber); margin-bottom:10px}
+.pp-cook-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px}
+.pp-cook-title{display:flex; align-items:center; gap:6px; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--amber)}
 .pp-cook-list{display:flex; flex-direction:column; gap:6px}
-.pp-cook-item{display:flex; flex-direction:column; gap:1px; text-align:left; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:8px 11px; transition:border-color .15s, background .15s}
+.pp-cook-item{display:flex; align-items:center; gap:8px; text-align:left; width:100%; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:8px 10px 8px 11px; cursor:pointer; transition:border-color .15s, background .15s}
 .pp-cook-item:hover{border-color:var(--sprout); background:#fff}
+.pp-cook-text{display:flex; flex-direction:column; gap:1px; flex:1; min-width:0}
 .pp-cook-name{font-size:13.5px; font-weight:600; color:var(--ink); line-height:1.2}
 .pp-cook-meta{font-family:var(--fm); font-size:10.5px; color:var(--green-mid)}
+.pp-cook-swap{color:#C7CFC0; flex:0 0 auto}
+.pp-cook-item:hover .pp-cook-swap{color:var(--green-mid)}
+.pp-cook-remove{flex:0 0 auto; background:none; border:none; color:#C7B0AA; display:grid; place-items:center; padding:3px; border-radius:6px}
+.pp-cook-remove:hover{color:var(--danger); background:#F6EAE6}
 
 /* planner: leftover styling */
 .pp-slot-tags{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
@@ -851,15 +929,10 @@ body::before{
 
 /* ── Shopping list ──────────────────────────────────────────────────────── */
 .pp-shop{animation:pp-rise .5s cubic-bezier(.2,.7,.2,1) backwards}
-.pp-shop-head{display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap}
+.pp-shop-head{display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:18px}
 .pp-shop-head .pp-fine{margin-top:3px; max-width:52ch}
 .pp-shop-clear{display:inline-flex; align-items:center; gap:6px; background:none; border:1px solid var(--line); color:var(--soft); border-radius:9px; padding:7px 12px; font-weight:600; font-size:12.5px}
 .pp-shop-clear:hover{border-color:var(--sprout); color:var(--green-mid)}
-
-.pp-shop-progress{display:flex; align-items:center; gap:12px; margin:14px 0 22px}
-.pp-shop-bar{flex:1; height:8px; background:#E2E9DA; border-radius:99px; overflow:hidden}
-.pp-shop-bar span{display:block; height:100%; background:linear-gradient(90deg,var(--sprout),var(--green-mid)); border-radius:99px; transition:width .35s cubic-bezier(.2,.7,.2,1)}
-.pp-shop-count{font-family:var(--fm); font-size:12px; color:var(--soft); white-space:nowrap}
 
 .pp-shop-section{margin-bottom:20px}
 .pp-shop-secname{display:flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--amber); margin-bottom:10px}
@@ -879,8 +952,22 @@ body::before{
 .pp-shop-item.checked .pp-shop-name{text-decoration:line-through; color:var(--soft)}
 .pp-shop-item.checked .pp-shop-amt{text-decoration:line-through}
 
+/* In the cart — checked items collected at the bottom */
+.pp-shop-alldone{display:flex; align-items:center; gap:8px; justify-content:center; color:var(--green-mid); font-size:14px; padding:22px 0 6px}
+.pp-shop-alldone svg{color:var(--sprout)}
+.pp-cart{margin-top:24px; border-top:2px dashed var(--line); padding-top:14px}
+.pp-cart-head{width:100%; display:flex; align-items:center; justify-content:space-between; background:none; border:none; padding:4px 2px; font-family:var(--fd); font-weight:700; font-size:14px; color:var(--soft)}
+.pp-cart-head>span{display:inline-flex; align-items:center; gap:8px}
+.pp-cart-count{display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--line); color:var(--soft); font-family:var(--fm); font-size:11px; font-weight:600}
+.pp-cart-head svg{transition:transform .2s}
+.pp-cart-head .rot{transform:rotate(180deg)}
+.pp-cart-items{margin-top:12px}
+.pp-cart-items .pp-shop-item{animation:pp-cart-in .25s ease both}
+@keyframes pp-cart-in{from{opacity:0; transform:translateY(-6px)} to{opacity:1; transform:none}}
+
 @media (prefers-reduced-motion:reduce){
   .pp-shop{animation:none}
-  .pp-shop-bar span{transition:none}
+  .pp-cart-items .pp-shop-item{animation:none}
+  .pp-cart-head svg{transition:none}
 }
 `;
