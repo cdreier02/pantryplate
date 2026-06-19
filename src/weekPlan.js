@@ -104,11 +104,15 @@ export function emptyPlan() {
   return { dinners: [], flex: [], grid: spreadGrid([], []) };
 }
 
+// Family recipes are opt-in (add from Browse / swap them in manually); they're
+// kept out of auto-generation and the random "+" so a shuffle stays on-theme.
+const autoOk = (m) => !m.family;
+
 export function buildPlan(meals, config = DEFAULT_CONFIG) {
   const nD = clamp(config.nDinners ?? 3, 1, MAX_PER_KIND);
   const nF = clamp(config.nFlex ?? 4, 1, MAX_PER_KIND);
-  const dinners = weightedSample(dinnerPool(meals), nD, weight).map((m) => m.id);
-  const flex = weightedSample(flexPool(meals), nF, weight).map((m) => m.id);
+  const dinners = weightedSample(dinnerPool(meals).filter(autoOk), nD, weight).map((m) => m.id);
+  const flex = weightedSample(flexPool(meals).filter(autoOk), nF, weight).map((m) => m.id);
   return { dinners, flex, grid: spreadGrid(dinners, flex) };
 }
 
@@ -117,7 +121,7 @@ export function buildPlan(meals, config = DEFAULT_CONFIG) {
 export function addRandomDish(plan, meals, kind) {
   const list = listFor(plan, kind);
   if (list.length >= MAX_PER_KIND) return plan;
-  const pool = poolForKind(meals, kind).filter((m) => !list.includes(m.id));
+  const pool = poolForKind(meals, kind).filter((m) => autoOk(m) && !list.includes(m.id));
   if (!pool.length) return plan;
   const pick = weightedSample(pool, 1, weight)[0];
   return withList(plan, kind, [pick.id, ...list]);

@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
   Search, Star, Plus, X, Clock, Heart, Trash2, ChevronDown,
   Leaf, Sprout, RotateCcw, Check, CalendarDays, LayoutGrid, ShoppingBasket,
-  CalendarPlus, CalendarCheck, Sun, UserRound,
+  CalendarPlus, CalendarCheck, Sun, UserRound, Users,
 } from "lucide-react";
 import { SEED_MEALS, CORE_PANTRY } from "./seedMeals.js";
+import { FAMILY_MEALS } from "./familyMeals.js";
 import {
   buildPlan, isValidPlan, migratePlan, emptyPlan, DEFAULT_CONFIG,
   addDishById, removeDishById, planHasDish, isKindFull, kindForMeal, shufflePlan,
@@ -22,6 +23,12 @@ import Today from "./Today.jsx";
 ---------------------------------------------------------------------------- */
 
 const TYPES = ["All", "Breakfast", "Lunch", "Dinner", "Snack"];
+// Family recipes carry a `category` mirroring their Google Drive folder. These
+// drive the filter chips in the Family view, shown in this order when present.
+const FAMILY_CATEGORIES = [
+  "Soup", "Salads", "Veg", "Pasta", "Meat", "Sides", "Sauces", "Snacks",
+  "Baking", "Desserts", "Drinks",
+];
 const SORTS = [
   { key: "name", label: "A–Z" },
   { key: "time", label: "Fastest" },
@@ -30,6 +37,10 @@ const SORTS = [
 ];
 
 const SAT_DOTS = { "very low": 1, low: 2, moderate: 3 };
+
+// An ingredient line ending in ":" is a section heading (e.g. "For the glaze:")
+// rather than a shoppable ingredient. Used to group the detail view's list.
+const isIngHeading = (line) => typeof line === "string" && line.trimEnd().endsWith(":");
 
 const MEALS_URL = import.meta.env.BASE_URL + "meals.json";
 
@@ -69,7 +80,7 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
   // Synchronous init → first paint is never empty: cached meals if present,
   // otherwise the bundled seed set. The mount effect upgrades this from the network.
   const [remoteMeals, setRemoteMeals] = useState(
-    () => loadKey("meals:remoteCache", null) || SEED_MEALS
+    () => loadKey("meals:remoteCache", null) || [...SEED_MEALS, ...FAMILY_MEALS]
   );
   const [custom, setCustom] = useState(() => loadKey("meals:custom", []));
   const [favorites, setFavorites] = useState(() => loadKey("meals:favorites", []));
@@ -85,6 +96,8 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
   const [activeTags, setActiveTags] = useState([]);
   const [sort, setSort] = useState("name");
   const [favOnly, setFavOnly] = useState(false);
+  const [familyOnly, setFamilyOnly] = useState(false);
+  const [familyCat, setFamilyCat] = useState(null); // selected Drive-folder category in Family view
 
   const [open, setOpen] = useState(null);     // meal being viewed
   const [adding, setAdding] = useState(false);
@@ -115,10 +128,20 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
     return [...byId.values()];
   }, [remoteMeals, custom]);
 
+  // The tag cloud reflects only the everyday (non-family) catalogue. Family
+  // recipes live behind the Family view and aren't tag-filtered, so their many
+  // idiosyncratic tags stay out of the cloud.
   const allTags = useMemo(() => {
     const s = new Set();
-    allMeals.forEach((m) => m.tags?.forEach((t) => s.add(t)));
+    allMeals.forEach((m) => { if (!m.family) m.tags?.forEach((t) => s.add(t)); });
     return [...s].sort();
+  }, [allMeals]);
+
+  // Drive-folder categories present among the family recipes, in display order.
+  const familyCategories = useMemo(() => {
+    const present = new Set();
+    allMeals.forEach((m) => { if (m.family && m.category) present.add(m.category); });
+    return FAMILY_CATEGORIES.filter((c) => present.has(c));
   }, [allMeals]);
 
   const updatePlan = useCallback((next) => {
@@ -246,6 +269,11 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
     let list = allMeals.filter((m) => {
       if (type !== "All" && m.type !== type) return false;
       if (favOnly && !favorites.includes(m.id)) return false;
+      // Family recipes are a separate section: hidden from the everyday Browse,
+      // shown only when the Family view is on.
+      if (familyOnly && !m.family) return false;
+      if (!familyOnly && m.family) return false;
+      if (familyOnly && familyCat && m.category !== familyCat) return false;
       if (activeTags.length && !activeTags.every((t) => m.tags?.includes(t))) return false;
       if (query) {
         const q = query.toLowerCase();
@@ -261,7 +289,7 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
       return a.name.localeCompare(b.name);
     });
     return list;
-  }, [allMeals, type, favOnly, favorites, activeTags, query, sort]);
+  }, [allMeals, type, favOnly, familyOnly, familyCat, favorites, activeTags, query, sort]);
 
   return (
     <div className="pp-root">
@@ -346,6 +374,9 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
           <button className={"pp-chip fav" + (favOnly ? " on" : "")} onClick={() => setFavOnly((v) => !v)}>
             <Star size={13} fill={favOnly ? "currentColor" : "none"} strokeWidth={2} /> Favorites
           </button>
+          <button className={"pp-chip family" + (familyOnly ? " on" : "")} onClick={() => { setFamilyOnly((v) => !v); setActiveTags([]); setFamilyCat(null); }}>
+            <Users size={13} strokeWidth={2} /> Family
+          </button>
         </div>
 
         <div className="pp-sortrow">
@@ -358,16 +389,29 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
         </div>
       </div>
 
-      <div className="pp-tagrow">
-        {allTags.map((t) => (
-          <button key={t} className={"pp-tag" + (activeTags.includes(t) ? " on" : "")} onClick={() => toggleTag(t)}>
-            {activeTags.includes(t) && <Check size={11} strokeWidth={3} />} {t}
-          </button>
-        ))}
-        {activeTags.length > 0 && (
-          <button className="pp-tag clear" onClick={() => setActiveTags([])}>clear tags</button>
-        )}
-      </div>
+      {!familyOnly && (
+        <div className="pp-tagrow">
+          {allTags.map((t) => (
+            <button key={t} className={"pp-tag" + (activeTags.includes(t) ? " on" : "")} onClick={() => toggleTag(t)}>
+              {activeTags.includes(t) && <Check size={11} strokeWidth={3} />} {t}
+            </button>
+          ))}
+          {activeTags.length > 0 && (
+            <button className="pp-tag clear" onClick={() => setActiveTags([])}>clear tags</button>
+          )}
+        </div>
+      )}
+
+      {familyOnly && familyCategories.length > 0 && (
+        <div className="pp-tagrow">
+          {familyCategories.map((c) => (
+            <button key={c} className={"pp-tag fam" + (familyCat === c ? " on" : "")}
+              onClick={() => setFamilyCat((cur) => (cur === c ? null : c))}>
+              {familyCat === c && <Check size={11} strokeWidth={3} />} {c}
+            </button>
+          ))}
+        </div>
+      )}
 
       <p className="pp-count">{shown.length} {shown.length === 1 ? "meal" : "meals"}</p>
 
@@ -416,6 +460,7 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
               <div className="pp-cardtags">
                 {m.tags?.slice(0, 3).map((t) => <span key={t}>{t}</span>)}
                 {m.custom && <span className="mine">yours</span>}
+                {m.family && <span className="fam">{m.contributor ? m.contributor : "family"}</span>}
               </div>
             </article>
           ))}
@@ -465,7 +510,11 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
             <span className="pp-sat"><Dots n={SAT_DOTS[open.sat] || 2} /> {open.sat} sat fat</span>
             <span><Clock size={12} /> {open.time} min</span>
           </div>
-          <p className="pp-whyline"><Heart size={13} strokeWidth={2.2} /> {open.why}</p>
+          {!open.family && (
+            <p className="pp-whyline">
+              <Heart size={13} strokeWidth={2.2} /> {open.why}
+            </p>
+          )}
           {(() => {
             const inWeek = planDishIds.has(open.id);
             const full = open.type === "Dinner" ? dinnersFull : flexFull;
@@ -481,7 +530,11 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
           <div className="pp-cols">
             <div>
               <h4>Ingredients</h4>
-              <ul className="pp-ing">{open.ingredients?.map((i, k) => <li key={k}>{i}</li>)}</ul>
+              <ul className="pp-ing">{open.ingredients?.map((i, k) =>
+                isIngHeading(i)
+                  ? <li key={k} className="pp-ing-head">{i.replace(/:\s*$/, "")}</li>
+                  : <li key={k}>{i}</li>
+              )}</ul>
             </div>
             <div>
               <h4>Method</h4>
@@ -681,6 +734,7 @@ const CSS = `
 .pp-chip:hover{border-color:var(--sprout)}
 .pp-chip.on{background:var(--green); color:#fff; border-color:var(--green)}
 .pp-chip.fav.on{background:var(--amber); border-color:var(--amber)}
+.pp-chip.family.on{background:#6a4878; border-color:#6a4878}
 .pp-sortrow{display:flex; align-items:center; gap:5px}
 .pp-sortlabel{font-size:12px; color:var(--soft); margin-right:2px}
 .pp-sort{border:none; background:none; color:var(--soft); font-size:13px; font-weight:600; padding:5px 8px; border-radius:7px}
@@ -691,6 +745,10 @@ const CSS = `
 .pp-tag:hover{border-color:var(--sprout); color:var(--green-mid)}
 .pp-tag.on{background:var(--green); color:#fff; border-style:solid; border-color:var(--green)}
 .pp-tag.clear{border-style:solid; color:var(--danger); border-color:transparent; text-decoration:underline}
+/* Family-view category chips: solid, purple, a touch larger than curated tags. */
+.pp-tag.fam{font-size:12px; border-style:solid; border-color:#E3D6EA; color:#7a5a88; padding:5px 11px}
+.pp-tag.fam:hover{border-color:#6a4878; color:#6a4878}
+.pp-tag.fam.on{background:#6a4878; color:#fff; border-color:#6a4878}
 
 .pp-count{font-family:var(--fm); font-size:12px; color:var(--soft); margin:0 0 12px}
 
@@ -717,6 +775,7 @@ const CSS = `
 .pp-cardtags{display:flex; flex-wrap:wrap; gap:5px; margin-top:auto}
 .pp-cardtags span{font-family:var(--fm); font-size:10px; color:var(--green-mid); background:#EAF1E2; padding:2px 7px; border-radius:5px}
 .pp-cardtags span.mine{background:var(--amber-soft); color:#8a5d12}
+.pp-cardtags span.fam{background:#EDE4F1; color:#6a4878}
 
 .pp-empty{text-align:center; padding:50px 20px; color:var(--soft)}
 .pp-empty svg{color:var(--sprout); margin-bottom:8px}
@@ -750,6 +809,9 @@ const CSS = `
 .pp-ing{list-style:none; margin:0; padding:0}
 .pp-ing li{font-size:14px; padding:4px 0 4px 16px; position:relative; border-bottom:1px solid var(--line)}
 .pp-ing li:before{content:''; position:absolute; left:2px; top:11px; width:6px; height:6px; border-radius:50%; background:var(--sprout)}
+.pp-ing li.pp-ing-head{font-family:var(--fm); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--green-mid); border-bottom:none; padding:15px 0 3px}
+.pp-ing li.pp-ing-head:first-child{padding-top:0}
+.pp-ing li.pp-ing-head:before{display:none}
 .pp-steps{margin:0; padding-left:20px}
 .pp-steps li{font-size:14px; padding:3px 0 7px}
 .pp-steps li::marker{color:var(--amber); font-family:var(--fm); font-weight:600}

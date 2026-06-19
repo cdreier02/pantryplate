@@ -186,6 +186,7 @@ export function buildShoppingList(entries) {
   for (const { meal, batches = 1 } of entries) {
     if (!meal || !Array.isArray(meal.ingredients)) continue;
     for (const rawLine of meal.ingredients) {
+      if (rawLine.trimEnd().endsWith(":")) continue; // section heading, not a shoppable item
       for (const piece of splitLine(rawLine)) {
         const cleaned = cleanName(piece);
         if (!cleaned) continue;

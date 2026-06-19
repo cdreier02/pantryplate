@@ -58,6 +58,7 @@ export default function Today({ allMeals, plan, cooked = {}, prepDay = 6, onTogg
     const out = [];
     for (const { meal } of prepMeals) {
       for (const ing of meal.ingredients || []) {
+        if (ing.trimEnd().endsWith(":")) continue; // section heading, not an ingredient
         const k = ing.trim().toLowerCase();
         if (!seen.has(k)) { seen.add(k); out.push(ing); }
       }
