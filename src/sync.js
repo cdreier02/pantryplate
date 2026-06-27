@@ -7,11 +7,27 @@ import { createClient } from "@supabase/supabase-js";
 
 // Base project URL (not the /rest/v1/ endpoint) + the public "publishable" key,
 // which is designed to be embedded in a web app. Row-level security gates access.
-const SUPABASE_URL = "https://wpzsmlesvquovxmkxkfl.supabase.co";
-const SUPABASE_KEY = "sb_publishable_u7tXyk1lIqg307kilsEVbw_A3tVS6Ad";
+export const SUPABASE_URL = "https://wpzsmlesvquovxmkxkfl.supabase.co";
+export const SUPABASE_KEY = "sb_publishable_u7tXyk1lIqg307kilsEVbw_A3tVS6Ad";
+
+// If the (free-tier) project is paused or the network drops, a bare fetch can
+// hang for the browser's default timeout (minutes). Cap each request so callers
+// fail fast and fall back to the on-device copy instead of blocking the UI.
+const REQUEST_TIMEOUT_MS = 8000;
+
+function fetchWithTimeout(input, init = {}) {
+  // Respect a caller-supplied signal (e.g. supabase's own .abortSignal()).
+  if (init.signal) return fetch(input, init);
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(id),
+  );
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
+  global: { fetch: fetchWithTimeout },
 });
 
 // localStorage keys that belong to a profile (synced). meals:remoteCache is just

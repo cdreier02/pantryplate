@@ -1,0 +1,36 @@
+name: Keep Supabase awake
+
+# Free-tier Supabase projects pause after 7 days with no activity, which breaks
+# PantryPlate's cloud sync until someone restores the project by hand. This job
+# runs a tiny daily query so the database always sees recent activity and never
+# crosses the inactivity threshold.
+
+on:
+  schedule:
+    # Daily at 07:17 UTC. Far more frequent than needed (the limit is 7 days),
+    # but a curl costs nothing and the margin survives a few skipped runs —
+    # GitHub may drop scheduled jobs when the Actions queue is busy.
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Supabase to register activity
+        env:
+          # These mirror the public values in src/sync.js: the project URL and
+          # the publishable (anon) key, which is designed to be embedded in the
+          # web client and is gated by row-level security. Override them with
+          # repository variables/secrets of the same name if you rotate keys.
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://wpzsmlesvquovxmkxkfl.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || vars.SUPABASE_KEY || 'sb_publishable_u7tXyk1lIqg307kilsEVbw_A3tVS6Ad' }}
+        run: |
+          set -euo pipefail
+          # Hit an actual table so the database engine (not just the API gateway)
+          # records activity. -f makes curl exit non-zero on HTTP >= 400.
+          status=$(curl -fsS -o /dev/null -w '%{http_code}' \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            "${SUPABASE_URL}/rest/v1/profiles?select=id&limit=1")
+          echo "Supabase responded with HTTP ${status}"
