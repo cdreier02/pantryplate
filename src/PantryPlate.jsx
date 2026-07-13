@@ -87,6 +87,7 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
   const [view, setView] = useState("today");
   const [plan, setPlan] = useState(() => migratePlan(loadKey("meals:plan", null)));
   const [shopChecked, setShopChecked] = useState(() => loadKey("meals:shopping:checked", {}));
+  const [shopExtras, setShopExtras] = useState(() => loadKey("meals:shopping:extras", []));
   const [cooked, setCooked] = useState(() => loadKey("meals:cooked", {}));
   const [prepDay, setPrepDay] = useState(() => loadKey("meals:prepDay", 6)); // Mon=0…Sun=6; default Sunday
   const [toast, setToast] = useState(null);
@@ -211,6 +212,31 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
   const clearShop = useCallback(() => {
     setShopChecked({});
     saveKey("meals:shopping:checked", {});
+  }, []);
+
+  const addShopExtra = useCallback((text) => {
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    setShopExtras((prev) => {
+      const next = [...prev, { id, text }];
+      saveKey("meals:shopping:extras", next);
+      return next;
+    });
+  }, []);
+
+  const removeShopExtra = useCallback((id) => {
+    setShopExtras((prev) => {
+      const next = prev.filter((x) => x.id !== id);
+      saveKey("meals:shopping:extras", next);
+      return next;
+    });
+    // Drop its checked entry too so the synced blob doesn't collect orphans.
+    setShopChecked((prev) => {
+      if (!(`extra:${id}` in prev)) return prev;
+      const next = { ...prev };
+      delete next[`extra:${id}`];
+      saveKey("meals:shopping:checked", next);
+      return next;
+    });
   }, []);
 
   // If a pre-existing plan was migrated from the old per-day shape, persist the
@@ -482,8 +508,9 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
       )}
 
       {view === "shopping" && (
-        <Shopping allMeals={allMeals} plan={plan} checked={shopChecked}
-          onToggle={toggleShop} onClear={clearShop} onPlan={() => setView("plan")} />
+        <Shopping allMeals={allMeals} plan={plan} extras={shopExtras} checked={shopChecked}
+          onToggle={toggleShop} onClear={clearShop} onAddExtra={addShopExtra}
+          onRemoveExtra={removeShopExtra} onPlan={() => setView("plan")} />
       )}
 
       {open && (
@@ -1089,6 +1116,14 @@ body::before{
 .pp-shop-clear{display:inline-flex; align-items:center; gap:6px; background:none; border:1px solid var(--line); color:var(--soft); border-radius:9px; padding:7px 12px; font-weight:600; font-size:12.5px}
 .pp-shop-clear:hover{border-color:var(--sprout); color:var(--green-mid)}
 
+.pp-shop-add{display:flex; gap:8px; margin-bottom:20px}
+.pp-shop-add input{flex:1; min-width:0; font-family:var(--fb); font-size:14px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:10px 13px; outline:none; transition:border-color .15s}
+.pp-shop-add input::placeholder{color:var(--soft); opacity:.75}
+.pp-shop-add input:focus{border-color:var(--sprout)}
+.pp-shop-add button{display:inline-flex; align-items:center; gap:6px; background:var(--green); color:#fff; border:none; border-radius:11px; padding:10px 16px; font-weight:600; font-size:13.5px; transition:background .15s, opacity .15s}
+.pp-shop-add button:hover:not(:disabled){background:var(--green-mid)}
+.pp-shop-add button:disabled{opacity:.45; cursor:default}
+
 .pp-shop-section{margin-bottom:20px}
 .pp-shop-secname{display:flex; align-items:center; gap:8px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--amber); margin-bottom:10px}
 .pp-shop-secname span{font-family:var(--fm); font-size:10px; color:var(--soft); background:#EAF1E2; border-radius:6px; padding:1px 7px; letter-spacing:0}
@@ -1096,8 +1131,11 @@ body::before{
 
 .pp-shop-item{display:flex; align-items:center; gap:11px; text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:11px 13px; transition:border-color .15s, background .15s, opacity .2s}
 .pp-shop-item:hover{border-color:var(--sprout)}
+.pp-shop-hit{display:flex; align-items:center; gap:11px; flex:1; min-width:0; background:none; border:none; padding:0; text-align:left}
 .pp-shop-box{flex:0 0 auto; width:21px; height:21px; border:2px solid #CBD5C0; border-radius:7px; display:grid; place-items:center; color:#fff; transition:background .15s, border-color .15s}
 .pp-shop-item:hover .pp-shop-box{border-color:var(--sprout)}
+.pp-shop-x{flex:0 0 auto; display:grid; place-items:center; width:24px; height:24px; background:none; border:none; border-radius:8px; color:var(--soft); transition:background .15s, color .15s}
+.pp-shop-x:hover{background:var(--bg); color:var(--amber)}
 .pp-shop-text{display:flex; flex-direction:column; gap:1px; min-width:0; flex:1}
 .pp-shop-name{font-size:14px; font-weight:600; color:var(--ink); line-height:1.25}
 .pp-shop-amt{font-family:var(--fm); font-size:11px; color:var(--green-mid)}
