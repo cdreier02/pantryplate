@@ -275,18 +275,36 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
     });
   }, []);
 
-  const deleteMeal = useCallback((id) => {
+  const deleteMeals = useCallback((ids) => {
+    const removed = new Set(ids);
+    if (!removed.size) return;
+
     setCustom((prev) => {
-      const next = prev.filter((m) => m.id !== id);
+      const next = prev.filter((m) => !removed.has(m.id));
       saveKey("meals:custom", next);
       return next;
     });
     setFavorites((prev) => {
-      const next = prev.filter((x) => x !== id);
+      const next = prev.filter((id) => !removed.has(id));
       saveKey("meals:favorites", next);
       return next;
     });
+    setCooked((prev) => {
+      const next = { ...prev };
+      for (const id of removed) delete next[id];
+      saveKey("meals:cooked", next);
+      return next;
+    });
+    setPlan((prev) => {
+      if (!isValidPlan(prev)) return prev;
+      let next = prev;
+      for (const id of removed) next = removeDishById(next, id);
+      if (next !== prev) saveKey("meals:plan", next);
+      return next;
+    });
   }, []);
+
+  const deleteMeal = useCallback((id) => deleteMeals([id]), [deleteMeals]);
 
   const toggleTag = (t) =>
     setActiveTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
@@ -576,7 +594,7 @@ export default function PantryPlate({ currentProfile, onSwitchProfile }) {
       {STORAGE_OK && custom.length > 0 && (
         <button className="pp-reset" onClick={() => {
           if (window.confirm("Remove all the meals you've added? This can't be undone.")) {
-            setCustom([]); saveKey("meals:custom", []);
+            deleteMeals(custom.map((m) => m.id));
           }
         }}>
           <RotateCcw size={12} /> Clear my added meals
