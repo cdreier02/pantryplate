@@ -39,6 +39,7 @@ export const SYNC_KEYS = [
   "meals:cooked",
   "meals:prepDay",
   "meals:shopping:checked",
+  "meals:shopping:extras",
 ];
 
 export const PROFILE_KEY = "pp:profile"; // { id, name }

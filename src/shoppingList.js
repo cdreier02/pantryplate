@@ -179,6 +179,25 @@ function amountString(entries) {
   return parts.join(" · ");
 }
 
+// A user-added line ("2 lemons", "paper towels") → a shopping item shaped like
+// the meal-derived ones. Keyed by the extra's own id (not the merged name) so
+// each added item stays its own row and can be removed individually.
+export function extraToItem(extra) {
+  const cleaned = cleanName(extra.text) || extra.text.trim();
+  const { value, unit, rest } = parseQuantity(cleaned);
+  const name = (rest || cleaned).replace(LEADING_AMOUNT, "").trim() || cleaned;
+  return {
+    key: `extra:${extra.id}`,
+    name: titleCase(name),
+    amount: amountString([{ value, unit }]),
+    mealCount: 0,
+    meals: [],
+    category: categoryFor(normWords(name)),
+    extra: true,
+    extraId: extra.id,
+  };
+}
+
 // entries: [{ meal, batches }] — ingredient amounts are scaled by `batches`
 // (how many times that recipe is cooked to cover its days in the plan).
 export function buildShoppingList(entries) {
