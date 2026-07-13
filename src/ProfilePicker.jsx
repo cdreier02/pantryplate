@@ -17,11 +17,18 @@ export default function ProfilePicker({ onPick, onCreate }) {
     return () => { cancelled = true; };
   }, []);
 
-  const submit = () => {
+  const submit = async () => {
     const n = name.trim();
     if (!n || busy) return;
     setBusy(true);
-    onCreate(n);
+    setError(null);
+    try {
+      await onCreate(n);
+    } catch (e) {
+      console.error("sync: create profile failed", e);
+      setError("Couldn't create the profile — check your connection and try again.");
+      setBusy(false);
+    }
   };
 
   return (

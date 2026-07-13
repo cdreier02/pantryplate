@@ -64,14 +64,9 @@ export default function App() {
 
   // Create a new profile seeded with whatever's currently on this device.
   const createNewProfile = useCallback(async (name) => {
-    try {
-      const p = await createProfile(name, gatherLocalData());
-      localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
-      window.location.reload();
-    } catch (e) {
-      console.error("sync: create profile failed", e);
-      alert("Couldn't create the profile — check your connection and try again.");
-    }
+    const p = await createProfile(name, gatherLocalData());
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
+    window.location.reload();
   }, []);
 
   // Switch profiles: drop local working data and return to the picker.
