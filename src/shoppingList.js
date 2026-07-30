@@ -19,6 +19,8 @@ const UNIT_CANON = {
   head: "head", heads: "head", stalk: "stalk", stalks: "stalk",
   slice: "slice", slices: "slice", pinch: "pinch", pinches: "pinch",
   bunch: "bunch", sprig: "sprig", sprigs: "sprig",
+  g: "g", gram: "g", grams: "g", kg: "kg", kilogram: "kg", kilograms: "kg",
+  ml: "ml", milliliter: "ml", milliliters: "ml", millilitre: "ml", millilitres: "ml",
 };
 const UNIT_PLURAL = {
   cup: "cups", can: "cans", clove: "cloves", block: "blocks", handful: "handfuls",
@@ -55,18 +57,20 @@ const MATCH_ORDER = [
     "chia", "flax", "sesame oil", "sesame seed", "sesame", "olive oil", "avocado oil",
     "oil", "nut"]],
   ["Protein & tofu", ["tofu", "tempeh", "egg", "seitan"]],
-  ["Dairy & alternatives", ["soy milk", "low-fat milk", "milk", "yogurt"]],
+  ["Dairy & alternatives", ["soy milk", "low-fat milk", "milk", "yogurt", "cheddar",
+    "mozzarella", "parmesan", "feta", "cheese"]],
   ["Pantry & spices", ["black pepper", "pepper flake", "peppercorn", "cayenne", "salt",
     "cumin", "smoked paprika", "paprika", "chili powder", "chili", "curry", "turmeric",
     "oregano", "cinnamon", "vanilla", "soy sauce", "rice vinegar", "vinegar",
     "vegetable broth", "veg broth", "broth", "stock", "tomato paste", "diced tomato",
     "crushed tomato", "canned tomato", "maple", "honey", "mustard", "salsa", "bay leaf",
-    "red pepper", "ginger powder", "garlic powder", "spice"]],
+    "red pepper", "ginger powder", "garlic powder", "cornstarch", "cornflour",
+    "italian herb", "spice"]],
   ["Produce", ["onion", "garlic", "carrot", "celery", "bell pepper", "pepper",
     "spinach", "kale", "tomato", "sweet potato", "potato", "banana", "lemon", "lime",
     "apple", "avocado", "cucumber", "scallion", "mushroom", "zucchini", "broccoli",
     "greens", "parsley", "mint", "cilantro", "ginger", "berry", "berries", "corn",
-    "cabbage", "date", "olive", "lettuce", "squash", "pea", "herb"]],
+    "cabbage", "date", "olive", "lettuce", "squash", "pea", "jalapeno", "herb"]],
 ];
 
 // display order of sections
@@ -110,7 +114,9 @@ function cleanName(name) {
 }
 
 function normWords(name) {
-  return name.toLowerCase().replace(KEY_QUALIFIERS, " ").replace(/[^a-z ]/g, " ")
+  // strip accents first, so "jalapeño" normalizes to "jalapeno" rather than "jalape o"
+  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(KEY_QUALIFIERS, " ").replace(/[^a-z ]/g, " ")
     .replace(/\s+/g, " ").trim();
 }
 
