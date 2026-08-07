@@ -280,6 +280,15 @@ export const SEED_MEALS = [
     steps: ["Steam or boil the edamame 5 min.", "Drain and toss with sea salt.", "Add lime and chili if you like; eat warm."],
   },
   {
+    id: "scallion-pancakes",
+    name: "Scallion Pancakes",
+    type: "Snack", time: 45, fiber: 1, protein: 3, sat: "low", cal: 200,
+    why: "A fried snack that carries no saturated fat at all — the flaky layers come from an oil-flour paste, so unsaturated oil does the work butter or lard would.",
+    tags: ["snack", "savory", "batch"],
+    ingredients: ["For the dough:", "1 cup all-purpose flour (plus 1–2 tbsp more if sticky)", "½ cup hot water", "1 tsp salt", "For the oil paste:", "1 tbsp all-purpose flour", "4 tbsp neutral oil", "To finish:", "5 scallions, finely chopped (4 works too)", "Neutral oil for frying"],
+    steps: ["Mix the flour, salt and hot water in a bowl, then knead to a smooth dough, sprinkling in 1–2 tbsp more flour if it sticks to your hands. Cover and rest it while you prep everything else — a few minutes is plenty.", "Chop the scallions into fine rings, halving them lengthwise first if you want smaller pieces.", "Stir 1 tbsp flour into 4 tbsp oil until you have a thin, smooth paste — this is what makes the layers flaky.", "Divide the dough into 6 pieces. Roll one out thin on a floured surface, brush it with the oil paste and scatter over a generous handful of scallions.", "Roll the dough up into a long log, coil the log into a snail like a cinnamon roll, press it flat and roll it out thin again. Repeat with the rest.", "Fry each pancake in a little oil over medium-high heat, 2–3 min a side, until golden and crisp. Add a little more oil between pancakes so they don't dry out.", "Cut into quarters and serve warm with your favorite dipping sauce."],
+  },
+  {
     id: "lentil-mushroom-bolognese",
     name: "Lentil & Mushroom Bolognese",
     type: "Dinner", time: 40, fiber: 14, protein: 18, sat: "low", cal: 420,
@@ -343,6 +352,7 @@ export const SERVINGS = {
   "spiced-roasted-chickpeas": 4,
   "walnut-date-bites": 6,
   "edamame-sea-salt": 3,
+  "scallion-pancakes": 6,
   // Dinner
   "red-lentil-dal": 4,
   "black-bean-tacos": 3,

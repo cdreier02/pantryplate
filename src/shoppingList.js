@@ -37,7 +37,7 @@ const PREP = new Set([
 ]);
 
 // adjectives dropped only for the grouping KEY (so "firm tofu" merges with "tofu")
-const KEY_QUALIFIERS = /\b(fresh|natural|low-fat|low-sodium|firm|frozen|cooked|dried|ground|whole|small|large|ripe|mixed|plain|canned|raw)\b/g;
+const KEY_QUALIFIERS = /\b(fresh|natural|low-fat|low-sodium|firm|frozen|cooked|dried|ground|whole|small|large|ripe|mixed|plain|canned|raw|hot)\b/g;
 
 // leading vague-amount phrases ("a few", "pinch of", "squeeze of"…)
 const LEADING_AMOUNT =
