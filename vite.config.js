@@ -35,6 +35,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+        // Slow Water (public/slow-water/) is a separate one-page toy that only shares this
+        // site's hosting. Keep it out of PantryPlate's precache and app-shell fallback, and
+        // give it its own cache rule below.
+        globIgnores: ["**/node_modules/**/*", "slow-water/**"],
+        navigateFallbackDenylist: [new RegExp(`^${BASE}slow-water/`)],
         // Meal data: network wins when online (fresh meals), cache covers offline.
         runtimeCaching: [
           {
@@ -44,6 +49,16 @@ export default defineConfig({
               cacheName: "pp-meals-json",
               networkTimeoutSeconds: 5,
               expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Slow Water: fresh copy when online, last copy when offline.
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/pantryplate/slow-water/"),
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "pp-slow-water",
+              networkTimeoutSeconds: 5,
               cacheableResponse: { statuses: [0, 200] },
             },
           },

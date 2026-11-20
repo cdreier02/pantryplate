@@ -51,6 +51,22 @@ npm run gen:icons  # rebuilds the green sprout PWA icons in public/
 Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds and publishes to
 GitHub Pages. Pages source must be set to **GitHub Actions**.
 
+## Slow Water (side toy)
+
+`public/slow-water/index.html` is a separate, self-contained page that ships alongside
+PantryPlate at **https://cdreier02.github.io/pantryplate/slow-water/**. It is an ambient
+chord-progression synth: it plays slow pad chords whose notes glide from one chord to the
+next, either looping a progression you build or wandering endlessly through a key.
+
+- One file, no build step and no dependencies (Web Audio API, inline CSS and JS). Open it
+  directly, or visit `/pantryplate/slow-water/index.html` under `npm run dev`.
+- It shares nothing with the PantryPlate app. The only coupling is in `vite.config.js`,
+  where the service worker is told to leave it out of the app shell and cache it on its own.
+- Loops you save live in `localStorage` under `slowwater.*` keys.
+- Lines marked `<!-- standalone -->` are the document wrapper. Dropping them
+  (`grep -v '<!-- standalone -->' public/slow-water/index.html`) gives a fragment that can
+  be published as a Claude artifact.
+
 ## Stack
 
 Vite · React · vite-plugin-pwa (service worker + manifest, `registerType: 'prompt'`) ·
